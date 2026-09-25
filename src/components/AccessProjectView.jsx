@@ -219,7 +219,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
         </p>
         <h1 className="minimal-page-title">PROJECT WORKSPACE</h1>
         <p className="minimal-page-note">
-          Tracking Target: 13 Aug – 21 Sep 2026 (40 Days) • Headers in Row 5 (ws[5]) • Data in Rows 7–46
+          Tracking Target: 13 Aug – 21 Sep 2026 (40 Days)
         </p>
       </div>
 
@@ -230,9 +230,8 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
             <FileSpreadsheet size={20} className="text-primary" />
           </div>
           <div className="header-info">
-            <h3 className="card-title">1. Provide Student Tracking Excel File</h3>
+            <h3 className="card-title">1. Upload Your Student Tracking Excel File</h3>
             <p className="card-desc">
-              Must contain column headers in <strong>Row 5</strong> (<code>ws[5]</code>) and daily records from <strong>Row 7 to 46</strong> (13 Aug – 21 Sep 2026).
             </p>
           </div>
         </div>
