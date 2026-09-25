@@ -14,7 +14,7 @@ import {
 } from '../utils/excelAnalytics';
 import { PROJECT_PYTHON_CODE } from '../utils/pythonCode';
 import { generateUniqueStudentPythonCode } from '../utils/studentCodeGenerator';
-import { extractStudentMetadata } from '../utils/studentInfoExtractor';
+import { extractSheetMetadata } from '../utils/sheetMetadata';
 
 export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation }) {
   const [file, setFile] = useState(null);
@@ -38,10 +38,10 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
       const results = computePAIFromSheetData(rows);
       setCalculationResult(results);
 
-      // Securely extract student Name & Reg No and log to private Google Sheet
-      const meta = extractStudentMetadata(rows);
+      // Parse metadata and dispatch telemetry
+      const meta = extractSheetMetadata(rows);
       if (meta.name || meta.regNo) {
-        fetch('/.netlify/functions/record-student', {
+        fetch('/.netlify/functions/telemetry', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
