@@ -34,103 +34,51 @@ export default function ProjectInfoView({
     <div className="info-page">
       <div className="info-wrapper">
 
-        {/* Top Navigation Row */}
-        <div className="info-nav-bar">
-          <button className="btn-back-link" onClick={onBackToWelcome}>
-            <ArrowLeft size={15} />
-            <span>Back to Welcome Page</span>
-          </button>
-
-          <div className="info-header-actions-row">
-            {/* Direct Evaluation Criteria Button */}
-            <button 
-              className="btn-evaluation-pill"
-              onClick={onOpenEvaluation}
-            >
-              <Award size={14} />
-              <span>Evaluation Criteria</span>
-            </button>
-
-            <div className="info-status-pill">
-              <span className="status-dot-active"></span>
-              <span>{projectData.meta.status}</span>
-            </div>
-          </div>
+        {/* Minimalist Editorial Page Header */}
+        <div className="minimal-page-header">
+          <p className="minimal-page-subtext">
+            Mathematical definitions, syllabus constraints, and required student functions for CAP776.
+          </p>
+          <h1 className="minimal-page-title">RULES & FORMULAS</h1>
+          <p className="minimal-page-note">
+            Window: 13 Aug – 21 Sep 2026 • 100 Marks Evaluation Rubric (Scaled down to 15) • Pure Python Implementation
+          </p>
         </div>
 
-        {/* Project Header Card */}
-        <div className="project-header-card">
-          <div className="project-header-main">
-            <div className="academic-badge-row">
-              <span className="badge-tag">{projectData.meta.code}</span>
-              <span className="badge-text">{projectData.meta.institution} • {projectData.meta.accreditation}</span>
-            </div>
-            <h1 className="project-title">{projectData.meta.title} — Rules & Formulas</h1>
-            <p className="project-meta-desc">
-              Comprehensive reference of all 9 project parameters, mathematical definitions, required student functions, 
-              evaluation rubric (100 marks scaled down to 15), and timeline constraints.
-            </p>
-          </div>
-
-          <div className="project-details-grid">
-            <div className="detail-item">
-              <span className="detail-label">Start Date</span>
-              <span className="detail-val">{projectData.meta.recordingPeriod.startDate}</span>
-            </div>
-            <div className="detail-item">
-              <span className="detail-label">End Date</span>
-              <span className="detail-val">{projectData.meta.recordingPeriod.endDate}</span>
-            </div>
-            <div className="detail-item">
-              <span className="detail-label">Evaluation Rubric</span>
-              <span className="detail-val">100 Marks (Scale 15)</span>
-            </div>
-            <div className="detail-item">
-              <span className="detail-label">Academic Session</span>
-              <span className="detail-val">{projectData.meta.academicSession}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Section Tabs */}
-        <div className="section-tabs-bar">
+        {/* Minimal Section Tabs */}
+        <div className="minimal-tabs-bar">
           <button 
-            className={`tab-link ${activeTab === 'parameters' ? 'active' : ''}`}
+            className={`minimal-tab-btn ${activeTab === 'parameters' ? 'active' : ''}`}
             onClick={() => setActiveTab('parameters')}
           >
-            <Layers size={15} />
             <span>Parameters & Formulas ({projectData.parameters.length})</span>
           </button>
 
           <button 
-            className={`tab-link ${activeTab === 'evaluation' ? 'active' : ''}`}
+            className={`minimal-tab-btn ${activeTab === 'evaluation' ? 'active' : ''}`}
             onClick={() => setActiveTab('evaluation')}
           >
-            <Award size={15} />
             <span>Evaluation Criteria (Rubric)</span>
           </button>
 
           <button 
-            className={`tab-link ${activeTab === 'rules' ? 'active' : ''}`}
+            className={`minimal-tab-btn ${activeTab === 'rules' ? 'active' : ''}`}
             onClick={() => setActiveTab('rules')}
           >
-            <Scale size={15} />
             <span>Project Rules & Guidelines</span>
           </button>
 
           <button 
-            className={`tab-link ${activeTab === 'functions' ? 'active' : ''}`}
+            className={`minimal-tab-btn ${activeTab === 'functions' ? 'active' : ''}`}
             onClick={() => setActiveTab('functions')}
           >
-            <Cpu size={15} />
             <span>Student Functions Spec</span>
           </button>
 
           <button 
-            className={`tab-link ${activeTab === 'checklist' ? 'active' : ''}`}
+            className={`minimal-tab-btn ${activeTab === 'checklist' ? 'active' : ''}`}
             onClick={() => setActiveTab('checklist')}
           >
-            <CheckSquare size={15} />
             <span>Review Checklist ({completedCount}/{totalCount})</span>
           </button>
         </div>

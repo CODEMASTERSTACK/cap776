@@ -28,19 +28,26 @@ html, body {
 }
 
 /* ==========================================================================
-   1. MINIMAL EDITORIAL NAVBAR (No Box, No Box Padding, Seamless White Backdrop)
+   1. MINIMAL EDITORIAL NAVBAR (No Box, Seamless White Backdrop)
    ========================================================================== */
 .minimal-navbar {
-  position: absolute;
+  position: sticky;
   top: 0;
   left: 0;
   width: 100%;
   z-index: 50;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-  padding: clamp(1.5rem, 3.5vw, 2.5rem) clamp(1.5rem, 5vw, 5rem) 0;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+  padding: 1.25rem clamp(1.5rem, 5vw, 4.5rem);
   box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.welcome-view-active .minimal-navbar {
+  position: absolute;
+  background: transparent;
+  border-bottom: none;
+  padding: clamp(1.5rem, 3.5vw, 2.5rem) clamp(1.5rem, 5vw, 5rem) 0;
 }
 
 .minimal-nav-container {
@@ -119,6 +126,38 @@ html, body {
   opacity: 1;
   transform: translateY(-1px) scale(1.02);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+}
+
+/* Home brand link shown in access project screen */
+.minimal-nav-link.nav-home-brand-btn {
+  font-family: 'Climate Crisis', sans-serif;
+  font-size: clamp(0.95rem, 1.3vw, 1.2rem);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: #000000;
+  background: none;
+  border: none;
+  padding: 0.2rem 0;
+  cursor: pointer;
+  animation: navFadeIn 0.3s ease-in-out;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  user-select: none;
+}
+
+.minimal-nav-link.nav-home-brand-btn:hover {
+  transform: scale(1.06);
+  opacity: 0.75;
+}
+
+@keyframes navFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .minimal-nav-link.active {
@@ -302,13 +341,101 @@ html, body {
 }
 
 /* ==========================================================================
-   3. PROJECT INFO PAGE & PARAMETERS
+   3. MINIMAL PAGE HEADER & TABS (Unified Theme Across All Pages)
+   ========================================================================== */
+.minimal-page-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2.75rem 1rem 1.75rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.minimal-page-subtext {
+  font-family: 'Short Stack', cursive, sans-serif;
+  font-size: clamp(0.95rem, 1.35vw, 1.15rem);
+  font-weight: 400;
+  color: #4b5563;
+  margin: 0 0 0.85rem 0;
+  max-width: 650px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.minimal-page-title {
+  font-family: 'Climate Crisis', sans-serif;
+  font-size: clamp(1.8rem, 4.5vw, 3.2rem);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: #000000;
+  margin: 0;
+  line-height: 1.15;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.minimal-page-note {
+  font-family: 'Lora', Georgia, serif;
+  font-size: clamp(0.72rem, 1vw, 0.84rem);
+  color: #6b7280;
+  margin: 0.85rem 0 0 0;
+  font-style: italic;
+  max-width: 650px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.minimal-tabs-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.75rem, 2vw, 2.2rem);
+  flex-wrap: wrap;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 0.95rem;
+  margin-bottom: 2rem;
+  width: 100%;
+}
+
+.minimal-tab-btn {
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  background: none;
+  border: none;
+  padding: 0.4rem 0.2rem;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.minimal-tab-btn:hover {
+  color: #000000;
+}
+
+.minimal-tab-btn.active {
+  color: #000000;
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-thickness: 2px;
+}
+
+/* ==========================================================================
+   4. PROJECT INFO PAGE & PARAMETERS
    ========================================================================== */
 .info-page {
-  padding: 1.75rem clamp(0.75rem, 3vw, 1.25rem) 4rem;
+  padding: 0.5rem clamp(0.75rem, 3vw, 1.25rem) 4rem;
   display: flex;
   justify-content: center;
   width: 100%;
+  background-color: #ffffff;
   box-sizing: border-box;
 }
 
@@ -2399,18 +2526,26 @@ html, body {
 .btn-download-python-card {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  background-color: #0f172a;
+  gap: 0.5rem;
+  background-color: #000000;
   color: #ffffff;
-  border: 1px solid #0f172a;
-  font-size: 0.82rem;
-  font-weight: 600;
-  padding: 0.55rem 1.15rem;
-  border-radius: var(--radius-sm);
+  border: 1px solid #000000;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.55rem 1.45rem;
+  border-radius: 9999px;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.btn-download-python-card:hover {
+  background-color: #1f2937;
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
 }
 
 .btn-download-python-card.btn-download-success {

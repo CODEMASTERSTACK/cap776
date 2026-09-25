@@ -195,30 +195,15 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
   return (
     <div className="access-project-container">
       
-      {/* Top Banner / Header */}
-      <div className="access-header-section">
-        <div className="access-breadcrumb">
-          <button className="breadcrumb-link" onClick={onBackToWelcome}>Home</button>
-          <ChevronRight size={14} />
-          <span className="breadcrumb-current">Access Project Calculator</span>
-        </div>
-
-        <div className="access-title-row">
-          <div>
-            <h1 className="access-main-title">CAP776 Data Processing & Calculation Engine</h1>
-            <p className="access-subtitle">
-              Upload your student daily tracking Excel workbook to execute openpyxl-compliant calculations for all 9 indices and relationship analyses.
-            </p>
-          </div>
-          <div className="access-header-badges">
-            <button className="btn-eval-pill-sm" onClick={onOpenEvaluation}>
-              <span>Evaluation Rubric</span>
-            </button>
-            <span className="window-pill">
-              40 Days: 13 Aug – 21 Sep 2026
-            </span>
-          </div>
-        </div>
+      {/* Minimalist Editorial Page Header */}
+      <div className="minimal-page-header">
+        <p className="minimal-page-subtext">
+          Upload your student tracking Excel workbook to calculate all 8 sub-indices, daily averages, and generate python code.
+        </p>
+        <h1 className="minimal-page-title">PROJECT WORKSPACE</h1>
+        <p className="minimal-page-note">
+          Tracking Target: 13 Aug – 21 Sep 2026 (40 Days) • Headers in Row 5 (ws[5]) • Data in Rows 7–46
+        </p>
       </div>
 
       {/* File Ingestion Card */}

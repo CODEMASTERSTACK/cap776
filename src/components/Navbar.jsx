@@ -20,15 +20,27 @@ export default function Navbar({
           </button>
         </div>
 
-        {/* Middle: Access Project */}
+        {/* Middle: Fades between ACCESS PROJECT and CAP776 Home */}
         <div className="minimal-nav-center">
-          <button 
-            className={`minimal-nav-link center-link ${currentView === 'access-project' ? 'active' : ''}`}
-            onClick={() => onNavigate('access-project')}
-            id="nav-access-project-btn"
-          >
-            ACCESS PROJECT
-          </button>
+          {currentView === 'access-project' ? (
+            <button 
+              className="minimal-nav-link nav-home-brand-btn"
+              onClick={() => onNavigate('welcome')}
+              id="nav-cap776-home-btn"
+              title="Return to Welcome Screen"
+            >
+              CAP776
+            </button>
+          ) : (
+            <button 
+              className="minimal-nav-link center-link"
+              onClick={() => onNavigate('access-project')}
+              id="nav-access-project-btn"
+              title="Access Project Workspace"
+            >
+              ACCESS PROJECT
+            </button>
+          )}
         </div>
 
         {/* Right Corner: Rules & Formulas */}
