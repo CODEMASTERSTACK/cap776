@@ -275,28 +275,6 @@ export default function ProjectInfoView({
 
         </div>
 
-        {/* BOTTOM PROCEED ACTION BAR */}
-        <div className="bottom-proceed-card">
-          <div className="proceed-status-col">
-            <div className="proceed-status-title">Review & Progression Status</div>
-            <div className="proceed-status-desc">
-              {completedCount} of {totalCount} requirements checked ({progressPercent}% verified).
-              {completedCount === totalCount ? " All formulas and rules verified." : " Check off the criteria to authorize project completion."}
-            </div>
-          </div>
-
-          <div className="proceed-action-col">
-            <button 
-              className="btn-proceed-main"
-              onClick={onProceed}
-              id="proceed-further-btn"
-            >
-              <span>Proceed Further</span>
-              <ArrowRight size={16} />
-            </button>
-          </div>
-        </div>
-
       </div>
     </div>
   );
