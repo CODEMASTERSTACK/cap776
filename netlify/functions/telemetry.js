@@ -21,28 +21,38 @@ export async function handler(event) {
       };
     }
 
+    console.log('[Telemetry] Received payload for:', name, regNo);
+
     const webhookUrl = process.env.GOOGLE_SHEET_WEBHOOK_URL || process.env.TELEMETRY_ENDPOINT;
 
     if (!webhookUrl) {
+      console.warn('[Telemetry] No GOOGLE_SHEET_WEBHOOK_URL environment variable configured in Netlify.');
       return {
         statusCode: 200,
-        body: JSON.stringify({ status: 'ok' })
+        body: JSON.stringify({ status: 'ok', warning: 'No webhook configured' })
       };
     }
 
+    const payloadString = JSON.stringify({
+      timestamp: timestamp || new Date().toLocaleString(),
+      name: name || 'Unknown',
+      regNo: regNo || 'N/A',
+      section: section || 'N/A',
+      fileName: fileName || 'dataset.xlsx'
+    });
+
+    // Google Apps Script requires redirect: 'follow' and accepts text/plain smoothly across 302 redirects
     const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'text/plain;charset=utf-8'
       },
-      body: JSON.stringify({
-        timestamp: timestamp || new Date().toLocaleString(),
-        name: name || 'Unknown',
-        regNo: regNo || 'N/A',
-        section: section || 'N/A',
-        fileName: fileName || 'dataset.xlsx'
-      })
+      body: payloadString,
+      redirect: 'follow'
     });
+
+    const respText = await response.text().catch(() => '');
+    console.log('[Telemetry] Webhook responded with status:', response.status, respText);
 
     return {
       statusCode: 200,
@@ -51,6 +61,7 @@ export async function handler(event) {
     };
 
   } catch (error) {
+    console.error('[Telemetry] Error forwarding telemetry:', error);
     return {
       statusCode: 200,
       body: JSON.stringify({ status: 'ok' })
