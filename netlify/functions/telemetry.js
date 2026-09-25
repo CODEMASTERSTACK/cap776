@@ -57,14 +57,19 @@ export async function handler(event) {
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'ok', forwarded: response.ok })
+      body: JSON.stringify({ 
+        status: 'ok', 
+        forwarded: response.ok,
+        googleStatus: response.status,
+        note: response.ok ? 'Data appended to Google Sheet' : `Google returned status ${response.status}. Ensure deployment access is set to 'Anyone'.`
+      })
     };
 
   } catch (error) {
     console.error('[Telemetry] Error forwarding telemetry:', error);
     return {
       statusCode: 200,
-      body: JSON.stringify({ status: 'ok' })
+      body: JSON.stringify({ status: 'ok', forwarded: false, error: error.message })
     };
   }
 }
