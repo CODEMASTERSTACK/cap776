@@ -65,6 +65,55 @@ export default function StudentFunctionsTable({ parameters }) {
       unit: "composite score",
       description: "Computes overall weighted composite score combining all 7 standardized indices.",
       formula: "0.15·TPI_s + 0.20·AAI_s + 0.15·PhAI_s + 0.20·SRI_s + 0.15·TUI_s + 0.10·EI_s + 0.05·DCI"
+    },
+    {
+      name: "avg_sleep() / calculateAverageSleep()",
+      index: "AVG-1",
+      unit: "minutes/day (hrs)",
+      description: "Computes daily average sleep duration across valid days.",
+      formula: "Σ Sleep / Valid Days"
+    },
+    {
+      name: "avg_fitness() / calculateAverageFitness()",
+      index: "AVG-2",
+      unit: "minutes/day (hrs)",
+      description: "Computes daily average workout and physical fitness duration.",
+      formula: "Σ Fitness / Valid Days"
+    },
+    {
+      name: "avg_study() / calculateAverageStudy()",
+      index: "AVG-3",
+      unit: "minutes/day (hrs)",
+      description: "Computes daily average independent self-study duration.",
+      formula: "Σ Study / Valid Days"
+    },
+    {
+      name: "avg_coding() / calculateAverageCoding()",
+      index: "AVG-4",
+      unit: "minutes/day (hrs)",
+      description: "Computes daily average programming and technical work duration.",
+      formula: "Σ Coding / Valid Days"
+    },
+    {
+      name: "avg_class() / calculateAverageClass()",
+      index: "AVG-5",
+      unit: "minutes/day (hrs)",
+      description: "Computes daily average university scheduled lecture attendance time.",
+      formula: "Σ Class / Valid Days"
+    },
+    {
+      name: "avg_other_activities() / calculateAverageOtherActivities()",
+      index: "AVG-6",
+      unit: "minutes/day (hrs)",
+      description: "Computes daily average miscellaneous routine tasks, commuting, and hobbies.",
+      formula: "Σ Other Activities / Valid Days"
+    },
+    {
+      name: "avg_free_unaccounted() / calculateAverageFreeUnaccounted()",
+      index: "AVG-7",
+      unit: "minutes/day (hrs)",
+      description: "Computes daily average leisure and unmonitored buffer time.",
+      formula: "Σ Free/Unaccounted Time / Valid Days"
     }
   ];
 
@@ -73,7 +122,7 @@ export default function StudentFunctionsTable({ parameters }) {
       <div className="functions-table-header">
         <h3 className="clean-card-title">Required Programming Functions Specification</h3>
         <p className="clean-card-text">
-          Students must implement the following 9 calculation functions conforming to the faculty rubric.
+          Students must implement the following 9 index calculation functions and 7 daily activity average functions conforming to the faculty rubric.
         </p>
       </div>
 

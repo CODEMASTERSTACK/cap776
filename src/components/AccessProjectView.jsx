@@ -2,8 +2,9 @@ import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { 
   Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, 
-  RefreshCw, Download, FileText, ChevronRight, BarChart3, 
-  Activity, Clock, Moon, Heart, BookOpen, Smile, Database, Sparkles, Copy, Check
+  RefreshCw, Download, FileText, FileCode, ChevronRight, BarChart3, 
+  Activity, Clock, Moon, Heart, BookOpen, Smile, Database, Sparkles, Copy, Check,
+  Layers, AlertCircle, Info, SlidersHorizontal
 } from 'lucide-react';
 import { 
   computePAIFromSheetData, 
@@ -11,6 +12,8 @@ import {
   REQUIRED_COLUMNS, 
   TRACKING_WINDOW 
 } from '../utils/excelAnalytics';
+import { PROJECT_PYTHON_CODE } from '../utils/pythonCode';
+import { generateUniqueStudentPythonCode } from '../utils/studentCodeGenerator';
 
 export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation }) {
   const [file, setFile] = useState(null);
@@ -20,8 +23,10 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
   const [calculationResult, setCalculationResult] = useState(null);
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'relationships' | 'data-inspector' | 'python-output'
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'daily-averages' | 'relationships' | 'data-inspector' | 'python-output'
   const [copiedJson, setCopiedJson] = useState(false);
+  const [downloadedVariant, setDownloadedVariant] = useState(false);
+  const [variantCount, setVariantCount] = useState(0);
   const fileInputRef = useRef(null);
 
   // Process a loaded 2D array of sheet data
@@ -77,27 +82,45 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
 
   // Handle sheet switching
   const handleSheetChange = (sheetName) => {
+    if (sheetName === selectedSheet) return;
     setSelectedSheet(sheetName);
     if (!rawWorkbook) return;
     try {
+      setIsProcessing(true);
+      setError(null);
       const ws = rawWorkbook.Sheets[sheetName];
       const sheetRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
       processSheetRows(sheetRows, file?.name || 'student_data.xlsx');
     } catch (err) {
       setError(`Failed to read sheet '${sheetName}': ${err.message}`);
+      setIsProcessing(false);
     }
   };
 
-  // Load sample dataset directly
+  // Load sample dataset directly (creates a 2-sheet workbook so multi-sheet switching can be tested)
   const handleLoadSampleData = () => {
     setIsProcessing(true);
     setError(null);
     setFile({ name: 'sample_student_log_40days.xlsx', size: 14200 });
-    setSheetNames(['Daily Tracking Log']);
+
+    const sampleRows = generateSampleSheetData();
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.aoa_to_sheet(sampleRows);
+    XLSX.utils.book_append_sheet(wb, ws1, 'Daily Tracking Log');
+
+    // Add a second informational sheet so user can test switching worksheets
+    const ws2 = XLSX.utils.aoa_to_sheet([
+      ['CAP776 Mini Project Guidelines'],
+      ['Student Data Recorded from 13 Aug to 21 Sep 2026'],
+      ['Switch to "Daily Tracking Log" tab for calculations']
+    ]);
+    XLSX.utils.book_append_sheet(wb, ws2, 'Project Overview & Rubric');
+
+    setRawWorkbook(wb);
+    setSheetNames(wb.SheetNames);
     setSelectedSheet('Daily Tracking Log');
 
     setTimeout(() => {
-      const sampleRows = generateSampleSheetData();
       processSheetRows(sampleRows, 'sample_student_log_40days.xlsx');
     }, 200);
   };
@@ -124,11 +147,49 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
         "Experience Index: ": calculationResult.indices.ei.value,
         "Active Balance Index: ": calculationResult.indices.abi.value,
         "Data Continuity Index": calculationResult.indices.dci.value
+      },
+      "daily_averages": {
+        "Average Sleep/day": `${calculationResult.dailyAverages.sleep.minutes} mins/day (${calculationResult.dailyAverages.sleep.hours} hrs/day)`,
+        "Average Fitness/day": `${calculationResult.dailyAverages.fitness.minutes} mins/day (${calculationResult.dailyAverages.fitness.hours} hrs/day)`,
+        "Average Study/day": `${calculationResult.dailyAverages.study.minutes} mins/day (${calculationResult.dailyAverages.study.hours} hrs/day)`,
+        "Average Coding/day": `${calculationResult.dailyAverages.coding.minutes} mins/day (${calculationResult.dailyAverages.coding.hours} hrs/day)`,
+        "Average Class/day": `${calculationResult.dailyAverages.classTime.minutes} mins/day (${calculationResult.dailyAverages.classTime.hours} hrs/day)`,
+        "Average Other Activities/day": `${calculationResult.dailyAverages.otherActivities.minutes} mins/day (${calculationResult.dailyAverages.otherActivities.hours} hrs/day)`,
+        "Average Free / Unaccounted Time/day": `${calculationResult.dailyAverages.freeUnaccounted.minutes} mins/day (${calculationResult.dailyAverages.freeUnaccounted.hours} hrs/day)`
       }
     };
     navigator.clipboard.writeText(JSON.stringify(pythonEquivalent, null, 2));
     setCopiedJson(true);
     setTimeout(() => setCopiedJson(false), 2000);
+  };
+
+  const handleDownloadPython = () => {
+    try {
+      // Dynamically generate a distinct, humanized student python script
+      const uniqueCode = generateUniqueStudentPythonCode();
+      const blob = new Blob([uniqueCode], { type: 'text/x-python;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'project.py';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      setDownloadedVariant(true);
+      setVariantCount(prev => prev + 1);
+      setTimeout(() => setDownloadedVariant(false), 2500);
+    } catch (err) {
+      console.error(err);
+      // Fallback
+      const link = document.createElement('a');
+      link.href = '/project.py';
+      link.download = 'project.py';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   return (
@@ -232,23 +293,95 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
           </div>
         </div>
 
-        {/* Sheet Selector (if multiple sheets exist) */}
-        {sheetNames.length > 1 && (
-          <div className="sheet-selector-row">
-            <label htmlFor="sheet-select" className="sheet-label">
-              Active Worksheet:
-            </label>
-            <select 
-              id="sheet-select"
-              value={selectedSheet} 
-              onChange={(e) => handleSheetChange(e.target.value)}
-              className="sheet-dropdown"
-            >
-              {sheetNames.map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-            <span className="sheet-count-tag">{sheetNames.length} sheets found</span>
+        {/* Highlighted Active Worksheet Section (Prominently displayed upon upload) */}
+        {file && sheetNames.length > 0 && (
+          <div className="active-worksheet-spotlight" id="active-worksheet-section">
+            <div className="spotlight-header">
+              <div className="spotlight-title-box">
+                <div className="spotlight-icon-wrap">
+                  <Layers size={18} className="spotlight-icon" />
+                </div>
+                <div>
+                  <div className="spotlight-badge-row">
+                    <span className="live-status-pill">
+                      <span className="live-pulse-dot"></span>
+                      ACTIVE CALCULATION TARGET
+                    </span>
+                    <span className="worksheet-count-badge">
+                      {sheetNames.length} {sheetNames.length === 1 ? 'Worksheet' : 'Worksheets Detected'}
+                    </span>
+                  </div>
+                  <h4 className="spotlight-sheet-name">
+                    Current Worksheet: <span className="highlighted-sheet-title">"{selectedSheet}"</span>
+                  </h4>
+                </div>
+              </div>
+
+              {sheetNames.length > 1 && (
+                <div className="spotlight-dropdown-wrapper">
+                  <label htmlFor="sheet-dropdown-select" className="dropdown-mini-label">
+                    Quick Switch:
+                  </label>
+                  <select 
+                    id="sheet-dropdown-select"
+                    value={selectedSheet} 
+                    onChange={(e) => handleSheetChange(e.target.value)}
+                    className="spotlight-select-menu"
+                  >
+                    {sheetNames.map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Interactive Sheet Selector Pills */}
+            <div className="spotlight-body">
+              <div className="pills-instruction-row">
+                <span className="pills-heading">
+                  <SlidersHorizontal size={13} />
+                  <span>Select which sheet contains your 40-day daily records:</span>
+                </span>
+                <span className="pills-hint">
+                  Click any worksheet below to re-run calculation
+                </span>
+              </div>
+
+              <div className="worksheet-pills-container">
+                {sheetNames.map((name) => {
+                  const isCurrent = name === selectedSheet;
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      className={`worksheet-pill ${isCurrent ? 'is-selected' : ''}`}
+                      onClick={() => handleSheetChange(name)}
+                      title={`Click to analyze sheet '${name}'`}
+                    >
+                      <FileSpreadsheet size={15} className={isCurrent ? 'text-primary' : 'text-muted'} />
+                      <span className="pill-name">{name}</span>
+                      {isCurrent ? (
+                        <span className="pill-active-tag">
+                          <CheckCircle2 size={13} />
+                          <span>Active</span>
+                        </span>
+                      ) : (
+                        <span className="pill-switch-tag">Switch</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Informational Guidance Banner */}
+              <div className="spotlight-advisory-banner">
+                <Info size={15} className="advisory-icon" />
+                <div className="advisory-text">
+                  <strong>Worksheet Verification:</strong> The calculation engine expects Row 5 to contain the 10 core column headers (<code>coding</code>, <code>study</code>, <code>class</code>, <code>sleep</code>, <code>total tracked</code>, etc.) and Rows 7–46 to hold the daily records. If your Excel workbook has multiple tabs or another tab holds the actual data, click on that tab above to recalculate.
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -303,6 +436,14 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
 
             <div className="audit-actions">
               <button 
+                className="btn-download-py-sm"
+                onClick={handleDownloadPython}
+                title="Download unique student-styled project.py"
+              >
+                {downloadedVariant ? <Check size={14} /> : <Download size={14} />}
+                <span>{downloadedVariant ? "Downloaded!" : "Download Python"}</span>
+              </button>
+              <button 
                 className="btn-copy-json" 
                 onClick={copyResultJson}
                 title="Copy Python-compatible dictionary output"
@@ -311,6 +452,48 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                 <span>{copiedJson ? "Copied Python Dict!" : "Copy Python JSON"}</span>
               </button>
             </div>
+          </div>
+
+          {/* Download Python File Card (Directly Under Audit Warning) */}
+          <div className="download-python-banner">
+            <div className="download-python-info">
+              <div className="python-banner-icon">
+                <FileCode size={22} />
+              </div>
+              <div className="python-banner-text">
+                <div className="py-title-flex">
+                  <h4 className="download-banner-title">Download Unique Python Code (project.py)</h4>
+                  <span className="py-code-pill pill-highlight">Anti-Plagiarism Generator</span>
+                  <span className="py-code-pill">openpyxl script</span>
+                </div>
+                <p className="download-banner-subtitle">
+                  Generates an authentic humanized student code variant (randomized variable names, casual comments, natural architecture, and prints) each time to prevent duplicate submission flags while adhering strictly to your syllabus.
+                </p>
+                {variantCount > 0 && (
+                  <div className="variant-counter-badge">
+                    <Sparkles size={12} />
+                    <span>Variant #{variantCount} generated & downloaded successfully</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <button 
+              className={`btn-download-python-card ${downloadedVariant ? 'btn-download-success' : ''}`}
+              onClick={handleDownloadPython}
+              title="Download fresh humanized variant of project.py"
+            >
+              {downloadedVariant ? (
+                <>
+                  <Check size={16} />
+                  <span>Unique Variant #{variantCount} Downloaded!</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={16} />
+                  <span>Download Unique Python File</span>
+                </>
+              )}
+            </button>
           </div>
 
           {/* Primary Hero: Personal Activity Index (PAI) */}
@@ -359,6 +542,13 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
               <span>All 8 Sub-Indices</span>
             </button>
             <button 
+              className={`analytics-tab-btn ${activeTab === 'daily-averages' ? 'active' : ''}`}
+              onClick={() => setActiveTab('daily-averages')}
+            >
+              <Clock size={15} />
+              <span>Daily Averages (7 Activities)</span>
+            </button>
+            <button 
               className={`analytics-tab-btn ${activeTab === 'relationships' ? 'active' : ''}`}
               onClick={() => setActiveTab('relationships')}
             >
@@ -381,7 +571,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
             </button>
           </div>
 
-          {/* TAB 1: 8 Sub-Indices Grid */}
+          {/* TAB 1: 8 Sub-Indices Grid (First Section) */}
           {activeTab === 'overview' && (
             <div className="indices-metrics-grid">
               
@@ -532,7 +722,311 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
             </div>
           )}
 
-          {/* TAB 2: Relationship Analysis (10 Marks in Rubric) */}
+          {/* TAB 2: Daily Averages (7 Core Activities - Second Section) */}
+          {activeTab === 'daily-averages' && calculationResult.dailyAverages && (
+            <div className="daily-averages-section">
+              <div className="daily-averages-header-box">
+                <div>
+                  <h4 className="averages-title">
+                    Daily Activity Averages (Calculated over {calculationResult.audit.validDays} Valid Days)
+                  </h4>
+                  <p className="averages-subtitle">
+                    Official per-day arithmetic averages (<code>sum(activity) / valid_days</code>) measuring student daily time commitment.
+                  </p>
+                </div>
+                <div className="averages-total-tracked-badge">
+                  <span>Tracked Window Average:</span>
+                  <strong>{(calculationResult.indices.tui.value / 60).toFixed(1)} hrs/day</strong>
+                </div>
+              </div>
+
+              <div className="daily-averages-grid">
+                
+                {/* 1. Average Sleep/day */}
+                <div className="daily-avg-card card-sleep">
+                  <div className="avg-card-top">
+                    <span className="avg-badge badge-sleep">
+                      <Moon size={13} />
+                      <span>Sleep</span>
+                    </span>
+                    <span className={`status-pill ${calculationResult.dailyAverages.sleep.status === 'Optimal' ? 'pill-optimal' : 'pill-warn'}`}>
+                      {calculationResult.dailyAverages.sleep.status}
+                    </span>
+                  </div>
+                  <h4 className="avg-card-name">Average Sleep/day</h4>
+                  <div className="avg-card-main-stat">
+                    <span className="avg-stat-num">{calculationResult.dailyAverages.sleep.minutes}</span>
+                    <span className="avg-stat-unit">min/day</span>
+                  </div>
+                  <div className="avg-hrs-highlight">
+                    <strong>{calculationResult.dailyAverages.sleep.hours} hrs/day</strong>
+                  </div>
+                  <div className="avg-card-details">
+                    <div className="detail-line">
+                      <span>40-Day Total:</span>
+                      <strong>{calculationResult.dailyAverages.sleep.totalMinutes} min</strong>
+                    </div>
+                    <div className="detail-line">
+                      <span>Clinical Target:</span>
+                      <strong>{calculationResult.dailyAverages.sleep.recommendation}</strong>
+                    </div>
+                  </div>
+                  <div className="day-proportion-track">
+                    <div 
+                      className="day-proportion-fill fill-sleep" 
+                      style={{ width: `${Math.min(100, (calculationResult.dailyAverages.sleep.minutes / 1440) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="proportion-caption">
+                    {((calculationResult.dailyAverages.sleep.minutes / 1440) * 100).toFixed(1)}% of 24h day
+                  </span>
+                </div>
+
+                {/* 2. Average Fitness/day */}
+                <div className="daily-avg-card card-fitness">
+                  <div className="avg-card-top">
+                    <span className="avg-badge badge-fitness">
+                      <Heart size={13} />
+                      <span>Fitness</span>
+                    </span>
+                    <span className="status-pill pill-optimal">
+                      {calculationResult.dailyAverages.fitness.status}
+                    </span>
+                  </div>
+                  <h4 className="avg-card-name">Average Fitness/day</h4>
+                  <div className="avg-card-main-stat">
+                    <span className="avg-stat-num">{calculationResult.dailyAverages.fitness.minutes}</span>
+                    <span className="avg-stat-unit">min/day</span>
+                  </div>
+                  <div className="avg-hrs-highlight">
+                    <strong>{calculationResult.dailyAverages.fitness.hours} hrs/day</strong>
+                  </div>
+                  <div className="avg-card-details">
+                    <div className="detail-line">
+                      <span>40-Day Total:</span>
+                      <strong>{calculationResult.dailyAverages.fitness.totalMinutes} min</strong>
+                    </div>
+                    <div className="detail-line">
+                      <span>WHO Target:</span>
+                      <strong>{calculationResult.dailyAverages.fitness.recommendation}</strong>
+                    </div>
+                  </div>
+                  <div className="day-proportion-track">
+                    <div 
+                      className="day-proportion-fill fill-fitness" 
+                      style={{ width: `${Math.min(100, (calculationResult.dailyAverages.fitness.minutes / 1440) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="proportion-caption">
+                    {((calculationResult.dailyAverages.fitness.minutes / 1440) * 100).toFixed(1)}% of 24h day
+                  </span>
+                </div>
+
+                {/* 3. Average Study/day */}
+                <div className="daily-avg-card card-study">
+                  <div className="avg-card-top">
+                    <span className="avg-badge badge-study">
+                      <BookOpen size={13} />
+                      <span>Study</span>
+                    </span>
+                    <span className="status-pill pill-optimal">
+                      {calculationResult.dailyAverages.study.status}
+                    </span>
+                  </div>
+                  <h4 className="avg-card-name">Average Study/day</h4>
+                  <div className="avg-card-main-stat">
+                    <span className="avg-stat-num">{calculationResult.dailyAverages.study.minutes}</span>
+                    <span className="avg-stat-unit">min/day</span>
+                  </div>
+                  <div className="avg-hrs-highlight">
+                    <strong>{calculationResult.dailyAverages.study.hours} hrs/day</strong>
+                  </div>
+                  <div className="avg-card-details">
+                    <div className="detail-line">
+                      <span>40-Day Total:</span>
+                      <strong>{calculationResult.dailyAverages.study.totalMinutes} min</strong>
+                    </div>
+                    <div className="detail-line">
+                      <span>Academic Target:</span>
+                      <strong>{calculationResult.dailyAverages.study.recommendation}</strong>
+                    </div>
+                  </div>
+                  <div className="day-proportion-track">
+                    <div 
+                      className="day-proportion-fill fill-study" 
+                      style={{ width: `${Math.min(100, (calculationResult.dailyAverages.study.minutes / 1440) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="proportion-caption">
+                    {((calculationResult.dailyAverages.study.minutes / 1440) * 100).toFixed(1)}% of 24h day
+                  </span>
+                </div>
+
+                {/* 4. Average Coding/day */}
+                <div className="daily-avg-card card-coding">
+                  <div className="avg-card-top">
+                    <span className="avg-badge badge-coding">
+                      <Activity size={13} />
+                      <span>Coding</span>
+                    </span>
+                    <span className="status-pill pill-optimal">
+                      {calculationResult.dailyAverages.coding.status}
+                    </span>
+                  </div>
+                  <h4 className="avg-card-name">Average Coding/day</h4>
+                  <div className="avg-card-main-stat">
+                    <span className="avg-stat-num">{calculationResult.dailyAverages.coding.minutes}</span>
+                    <span className="avg-stat-unit">min/day</span>
+                  </div>
+                  <div className="avg-hrs-highlight">
+                    <strong>{calculationResult.dailyAverages.coding.hours} hrs/day</strong>
+                  </div>
+                  <div className="avg-card-details">
+                    <div className="detail-line">
+                      <span>40-Day Total:</span>
+                      <strong>{calculationResult.dailyAverages.coding.totalMinutes} min</strong>
+                    </div>
+                    <div className="detail-line">
+                      <span>SWE Target:</span>
+                      <strong>{calculationResult.dailyAverages.coding.recommendation}</strong>
+                    </div>
+                  </div>
+                  <div className="day-proportion-track">
+                    <div 
+                      className="day-proportion-fill fill-coding" 
+                      style={{ width: `${Math.min(100, (calculationResult.dailyAverages.coding.minutes / 1440) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="proportion-caption">
+                    {((calculationResult.dailyAverages.coding.minutes / 1440) * 100).toFixed(1)}% of 24h day
+                  </span>
+                </div>
+
+                {/* 5. Average Class/day */}
+                <div className="daily-avg-card card-class">
+                  <div className="avg-card-top">
+                    <span className="avg-badge badge-class">
+                      <Clock size={13} />
+                      <span>Class</span>
+                    </span>
+                    <span className="status-pill pill-neutral">
+                      {calculationResult.dailyAverages.classTime.status}
+                    </span>
+                  </div>
+                  <h4 className="avg-card-name">Average Class/day</h4>
+                  <div className="avg-card-main-stat">
+                    <span className="avg-stat-num">{calculationResult.dailyAverages.classTime.minutes}</span>
+                    <span className="avg-stat-unit">min/day</span>
+                  </div>
+                  <div className="avg-hrs-highlight">
+                    <strong>{calculationResult.dailyAverages.classTime.hours} hrs/day</strong>
+                  </div>
+                  <div className="avg-card-details">
+                    <div className="detail-line">
+                      <span>40-Day Total:</span>
+                      <strong>{calculationResult.dailyAverages.classTime.totalMinutes} min</strong>
+                    </div>
+                    <div className="detail-line">
+                      <span>Timetable:</span>
+                      <strong>{calculationResult.dailyAverages.classTime.recommendation}</strong>
+                    </div>
+                  </div>
+                  <div className="day-proportion-track">
+                    <div 
+                      className="day-proportion-fill fill-class" 
+                      style={{ width: `${Math.min(100, (calculationResult.dailyAverages.classTime.minutes / 1440) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="proportion-caption">
+                    {((calculationResult.dailyAverages.classTime.minutes / 1440) * 100).toFixed(1)}% of 24h day
+                  </span>
+                </div>
+
+                {/* 6. Average Other Activities/day */}
+                <div className="daily-avg-card card-other">
+                  <div className="avg-card-top">
+                    <span className="avg-badge badge-other">
+                      <Sparkles size={13} />
+                      <span>Other</span>
+                    </span>
+                    <span className="status-pill pill-neutral">
+                      {calculationResult.dailyAverages.otherActivities.status}
+                    </span>
+                  </div>
+                  <h4 className="avg-card-name">Average Other Activities/day</h4>
+                  <div className="avg-card-main-stat">
+                    <span className="avg-stat-num">{calculationResult.dailyAverages.otherActivities.minutes}</span>
+                    <span className="avg-stat-unit">min/day</span>
+                  </div>
+                  <div className="avg-hrs-highlight">
+                    <strong>{calculationResult.dailyAverages.otherActivities.hours} hrs/day</strong>
+                  </div>
+                  <div className="avg-card-details">
+                    <div className="detail-line">
+                      <span>40-Day Total:</span>
+                      <strong>{calculationResult.dailyAverages.otherActivities.totalMinutes} min</strong>
+                    </div>
+                    <div className="detail-line">
+                      <span>Activities:</span>
+                      <strong>{calculationResult.dailyAverages.otherActivities.recommendation}</strong>
+                    </div>
+                  </div>
+                  <div className="day-proportion-track">
+                    <div 
+                      className="day-proportion-fill fill-other" 
+                      style={{ width: `${Math.min(100, (calculationResult.dailyAverages.otherActivities.minutes / 1440) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="proportion-caption">
+                    {((calculationResult.dailyAverages.otherActivities.minutes / 1440) * 100).toFixed(1)}% of 24h day
+                  </span>
+                </div>
+
+                {/* 7. Average Free / Unaccounted Time/day */}
+                <div className="daily-avg-card card-free">
+                  <div className="avg-card-top">
+                    <span className="avg-badge badge-free">
+                      <Smile size={13} />
+                      <span>Free / Leisure</span>
+                    </span>
+                    <span className="status-pill pill-optimal">
+                      {calculationResult.dailyAverages.freeUnaccounted.status}
+                    </span>
+                  </div>
+                  <h4 className="avg-card-name">Average Free / Unaccounted Time/day</h4>
+                  <div className="avg-card-main-stat">
+                    <span className="avg-stat-num">{calculationResult.dailyAverages.freeUnaccounted.minutes}</span>
+                    <span className="avg-stat-unit">min/day</span>
+                  </div>
+                  <div className="avg-hrs-highlight">
+                    <strong>{calculationResult.dailyAverages.freeUnaccounted.hours} hrs/day</strong>
+                  </div>
+                  <div className="avg-card-details">
+                    <div className="detail-line">
+                      <span>40-Day Total:</span>
+                      <strong>{calculationResult.dailyAverages.freeUnaccounted.totalMinutes} min</strong>
+                    </div>
+                    <div className="detail-line">
+                      <span>Buffer Target:</span>
+                      <strong>{calculationResult.dailyAverages.freeUnaccounted.recommendation}</strong>
+                    </div>
+                  </div>
+                  <div className="day-proportion-track">
+                    <div 
+                      className="day-proportion-fill fill-free" 
+                      style={{ width: `${Math.min(100, (calculationResult.dailyAverages.freeUnaccounted.minutes / 1440) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="proportion-caption">
+                    {((calculationResult.dailyAverages.freeUnaccounted.minutes / 1440) * 100).toFixed(1)}% of 24h day
+                  </span>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: Relationship Analysis (10 Marks in Rubric) */}
           {activeTab === 'relationships' && (
             <div className="relationships-section">
               <div className="relationship-intro-box">
@@ -708,10 +1202,21 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
           {activeTab === 'python-output' && (
             <div className="python-output-section">
               <div className="terminal-header">
-                <span className="terminal-dot red"></span>
-                <span className="terminal-dot yellow"></span>
-                <span className="terminal-dot green"></span>
-                <span className="terminal-title">Python openpyxl Execution Stream (project.py)</span>
+                <div className="terminal-header-left">
+                  <span className="terminal-dot red"></span>
+                  <span className="terminal-dot yellow"></span>
+                  <span className="terminal-dot green"></span>
+                  <span className="terminal-title">Python openpyxl Execution Stream (project.py)</span>
+                </div>
+                <button
+                  className="btn-download-py-sm"
+                  onClick={handleDownloadPython}
+                  style={{ padding: '0.24rem 0.65rem', fontSize: '0.72rem' }}
+                  title="Download project.py source code"
+                >
+                  <Download size={12} />
+                  <span>Download .py</span>
+                </button>
               </div>
               <pre className="terminal-body">
 {`[Audit] Expected Days in Range: ${calculationResult.audit.expectedDays}
@@ -727,6 +1232,10 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
 [TUI] Time Utility Index: Total Tracked Time = ${calculationResult.indices.tui.total} mins | Daily Avg = ${calculationResult.indices.tui.value} mins/day
 [EI] Emotional Index: Raw Sentiment Score Sum = ${calculationResult.indices.ei.rawScoreSum} / Max Possible (${calculationResult.indices.ei.maxPossible}) | Average Score = ${calculationResult.indices.ei.value}
 [The Data Continuity Index is: ${calculationResult.audit.validDays}/${calculationResult.audit.expectedDays} valid days (${calculationResult.indices.dci.value}%)
+
+[Avg Study] Total = ${calculationResult.dailyAverages.study.totalMinutes} mins | Daily Avg = ${calculationResult.dailyAverages.study.minutes} mins/day (${calculationResult.dailyAverages.study.hours} hrs/day)
+[Avg Class] Total = ${calculationResult.dailyAverages.classTime.totalMinutes} mins | Daily Avg = ${calculationResult.dailyAverages.classTime.minutes} mins/day (${calculationResult.dailyAverages.classTime.hours} hrs/day)
+[Avg Other Activities] Total = ${calculationResult.dailyAverages.otherActivities.totalMinutes} mins | Daily Avg = ${calculationResult.dailyAverages.otherActivities.minutes} mins/day (${calculationResult.dailyAverages.otherActivities.hours} hrs/day)
 ----------------------------------
 
 >>> Output Dictionary:
@@ -741,6 +1250,15 @@ ${JSON.stringify({
     "Experience Index: ": calculationResult.indices.ei.value,
     "Active Balance Index: ": calculationResult.indices.abi.value,
     "Data Continuity Index": calculationResult.indices.dci.value
+  },
+  "daily_averages": {
+    "Average Sleep/day": `${calculationResult.dailyAverages.sleep.minutes} mins/day (${calculationResult.dailyAverages.sleep.hours} hrs/day)`,
+    "Average Fitness/day": `${calculationResult.dailyAverages.fitness.minutes} mins/day (${calculationResult.dailyAverages.fitness.hours} hrs/day)`,
+    "Average Study/day": `${calculationResult.dailyAverages.study.minutes} mins/day (${calculationResult.dailyAverages.study.hours} hrs/day)`,
+    "Average Coding/day": `${calculationResult.dailyAverages.coding.minutes} mins/day (${calculationResult.dailyAverages.coding.hours} hrs/day)`,
+    "Average Class/day": `${calculationResult.dailyAverages.classTime.minutes} mins/day (${calculationResult.dailyAverages.classTime.hours} hrs/day)`,
+    "Average Other Activities/day": `${calculationResult.dailyAverages.otherActivities.minutes} mins/day (${calculationResult.dailyAverages.otherActivities.hours} hrs/day)`,
+    "Average Free / Unaccounted Time/day": `${calculationResult.dailyAverages.freeUnaccounted.minutes} mins/day (${calculationResult.dailyAverages.freeUnaccounted.hours} hrs/day)`
   }
 }, null, 2)}`}
               </pre>

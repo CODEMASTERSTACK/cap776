@@ -5,6 +5,7 @@ import ProjectInfoView from './components/ProjectInfoView';
 import AccessProjectView from './components/AccessProjectView';
 import ProceedModal from './components/ProceedModal';
 import EvaluationModal from './components/EvaluationModal';
+import DisclaimerModal from './components/DisclaimerModal';
 import Footer from './components/Footer';
 import { projectData } from './data/projectData';
 import './App.css';
@@ -13,6 +14,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState('welcome'); // 'welcome' | 'info' | 'access-project'
   const [isProceedModalOpen, setIsProceedModalOpen] = useState(false);
   const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false);
+  const [isDisclaimerModalOpen, setIsDisclaimerModalOpen] = useState(false);
 
   // Initialize checklist state with default checked items
   const [checklistState, setChecklistState] = useState(() => {
@@ -58,21 +60,17 @@ export default function App() {
   const progressPercent = Math.round((completedCount / totalCount) * 100);
 
   return (
-    <div className="app-wrapper">
+    <div className={`app-wrapper ${currentView === 'welcome' ? 'welcome-view-active' : ''}`}>
       <Navbar 
         currentView={currentView}
         onNavigate={handleNavigate}
-        checklistProgress={{ completed: completedCount, total: totalCount }}
         onOpenEvaluation={() => setIsEvaluationModalOpen(true)}
       />
 
       <main className="main-content">
         {currentView === 'welcome' && (
           <WelcomeView 
-            projectData={projectData} 
-            onEnter={handleEnter} 
             onAccessProject={handleAccessProject}
-            onOpenEvaluation={() => setIsEvaluationModalOpen(true)}
           />
         )}
         
@@ -96,7 +94,7 @@ export default function App() {
         )}
       </main>
 
-      <Footer meta={projectData.meta} />
+      {currentView !== 'welcome' && <Footer meta={projectData.meta} />}
 
       {/* Progression Authorization Modal */}
       <ProceedModal 
@@ -111,6 +109,12 @@ export default function App() {
         isOpen={isEvaluationModalOpen}
         onClose={() => setIsEvaluationModalOpen(false)}
         rubric={projectData.evaluationRubric}
+      />
+
+      {/* Academic Disclaimer Modal */}
+      <DisclaimerModal 
+        isOpen={isDisclaimerModalOpen}
+        onClose={() => setIsDisclaimerModalOpen(false)}
       />
     </div>
   );

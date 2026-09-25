@@ -147,17 +147,30 @@ export function computePAIFromSheetData(sheetRows) {
       }
     }
 
+    const explicitOther = parseFloat(row[columnMap["other activities"] || columnMap["other"] || columnMap["other activity"]]) || 0;
+    const codingVal = parseFloat(row[columnMap["coding"]]) || 0;
+    const studyVal = parseFloat(row[columnMap["study"]]) || 0;
+    const classVal = parseFloat(row[columnMap["class"]]) || 0;
+    const fitnessVal = parseFloat(row[columnMap["fitness"]]) || 0;
+    const sleepVal = parseFloat(row[columnMap["sleep"]]) || 0;
+    const freeVal = parseFloat(row[columnMap["free/unaccounted"]]) || 0;
+    const totalVal = parseFloat(row[columnMap["total tracked"]]) || 0;
+
+    // Derived or explicit other activities
+    const otherVal = explicitOther > 0 ? explicitOther : Math.max(0, totalVal - (codingVal + studyVal + classVal + fitnessVal + sleepVal + freeVal));
+
     // Extract extracted values for the row for preview/inspection
     const rowData = {
       excelRowNumber: r + 1,
       isValid: isRowValid,
-      coding: parseFloat(row[columnMap["coding"]]) || 0,
-      study: parseFloat(row[columnMap["study"]]) || 0,
-      class: parseFloat(row[columnMap["class"]]) || 0,
-      fitness: parseFloat(row[columnMap["fitness"]]) || 0,
-      sleep: parseFloat(row[columnMap["sleep"]]) || 0,
-      freeUnaccounted: parseFloat(row[columnMap["free/unaccounted"]]) || 0,
-      totalTracked: parseFloat(row[columnMap["total tracked"]]) || 0,
+      coding: codingVal,
+      study: studyVal,
+      class: classVal,
+      fitness: fitnessVal,
+      sleep: sleepVal,
+      otherActivities: otherVal,
+      freeUnaccounted: freeVal,
+      totalTracked: totalVal,
       feeling: row[columnMap["day's feeling"]] || "",
       satisfaction: row[columnMap["satisfaction level"]] || "",
       energy: row[columnMap["energy level"]] || ""
@@ -192,11 +205,24 @@ export function computePAIFromSheetData(sheetRows) {
   const totalFree = validRows.reduce((acc, r) => acc + r.freeUnaccounted, 0);
   const abi = validDays > 0 ? totalFree / validDays : 0;
 
-  // 6. TUI: Time Utility Index
+  // 6. Other Activities
+  const totalOther = validRows.reduce((acc, r) => acc + r.otherActivities, 0);
+  const otherAvg = validDays > 0 ? totalOther / validDays : 0;
+
+  // 7. TUI: Time Utility Index
   const totalTracked = validRows.reduce((acc, r) => acc + r.totalTracked, 0);
   const tui = validDays > 0 ? totalTracked / validDays : 0;
 
-  // 7. EI: Emotional Index
+  // 8. Specific Daily Averages (Requested Functions)
+  const avgSleep = sri;
+  const avgFitness = phai;
+  const avgStudy = validDays > 0 ? totalStudy / validDays : 0;
+  const avgCoding = tpi;
+  const avgClass = validDays > 0 ? totalClass / validDays : 0;
+  const avgOtherActivities = otherAvg;
+  const avgFreeUnaccounted = abi;
+
+  // 9. EI: Emotional Index
   let totalSentimentSum = 0;
   validRows.forEach(r => {
     const valFeeling = mapSentiment("Feeling", r.feeling);
@@ -210,10 +236,10 @@ export function computePAIFromSheetData(sheetRows) {
     ? (totalSentimentSum / formulaDenominator) * 5
     : 0;
 
-  // 8. DCI: Data Continuity Index
+  // 10. DCI: Data Continuity Index
   const dci = expectedDays > 0 ? (validDays / expectedDays) * 100 : 0;
 
-  // 9. PAI: Personal Activity Index
+  // 11. PAI: Personal Activity Index
   // Formula: 0.15*TPI + 0.20*AAI + 0.15*PhAI + 0.20*SRI + 0.15*TUI + 0.10*EI + 0.05*DCI
   const pai = (
     0.15 * tpi +
@@ -236,6 +262,72 @@ export function computePAIFromSheetData(sheetRows) {
     fitness: computeColumnStats(validRows.map(r => r.fitness)),
     sleep: computeColumnStats(validRows.map(r => r.sleep)),
     totalTracked: computeColumnStats(validRows.map(r => r.totalTracked))
+  };
+
+  const dailyAverages = {
+    sleep: {
+      name: "Average Sleep/day",
+      minutes: Number(avgSleep.toFixed(2)),
+      hours: Number((avgSleep / 60).toFixed(2)),
+      totalMinutes: totalSleep,
+      unit: "min/day",
+      recommendation: "7.0 – 9.0 hrs/day",
+      status: avgSleep >= 420 && avgSleep <= 540 ? "Optimal" : (avgSleep < 420 ? "Deficit" : "High")
+    },
+    fitness: {
+      name: "Average Fitness/day",
+      minutes: Number(avgFitness.toFixed(2)),
+      hours: Number((avgFitness / 60).toFixed(2)),
+      totalMinutes: totalFitness,
+      unit: "min/day",
+      recommendation: "≥ 30 min/day",
+      status: avgFitness >= 30 ? "Target Met" : "Below Target"
+    },
+    study: {
+      name: "Average Study/day",
+      minutes: Number(avgStudy.toFixed(2)),
+      hours: Number((avgStudy / 60).toFixed(2)),
+      totalMinutes: totalStudy,
+      unit: "min/day",
+      recommendation: "≥ 60 min/day",
+      status: avgStudy >= 60 ? "Active" : "Light"
+    },
+    coding: {
+      name: "Average Coding/day",
+      minutes: Number(avgCoding.toFixed(2)),
+      hours: Number((avgCoding / 60).toFixed(2)),
+      totalMinutes: totalCoding,
+      unit: "min/day",
+      recommendation: "≥ 60 – 120 min/day",
+      status: avgCoding >= 60 ? "Productive" : "Developing"
+    },
+    classTime: {
+      name: "Average Class/day",
+      minutes: Number(avgClass.toFixed(2)),
+      hours: Number((avgClass / 60).toFixed(2)),
+      totalMinutes: totalClass,
+      unit: "min/day",
+      recommendation: "Official University Schedule",
+      status: "Academic"
+    },
+    otherActivities: {
+      name: "Average Other Activities/day",
+      minutes: Number(avgOtherActivities.toFixed(2)),
+      hours: Number((avgOtherActivities / 60).toFixed(2)),
+      totalMinutes: totalOther,
+      unit: "min/day",
+      recommendation: "Daily Routine & Logistics",
+      status: "Routine"
+    },
+    freeUnaccounted: {
+      name: "Average Free / Unaccounted Time/day",
+      minutes: Number(avgFreeUnaccounted.toFixed(2)),
+      hours: Number((avgFreeUnaccounted / 60).toFixed(2)),
+      totalMinutes: totalFree,
+      unit: "min/day",
+      recommendation: "Leisure & Buffer Window",
+      status: avgFreeUnaccounted <= 180 ? "Balanced" : "High Downtime"
+    }
   };
 
   return {
@@ -336,6 +428,7 @@ export function computePAIFromSheetData(sheetRows) {
         desc: "Percentage of mandatory logging days successfully tracked without gaps."
       }
     },
+    dailyAverages,
     relationships,
     stats,
     inspectedRows

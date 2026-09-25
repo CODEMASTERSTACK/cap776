@@ -1,4 +1,7 @@
-import openpyxl as opx
+/**
+ * Raw text content of project.py for client-side download
+ */
+export const PROJECT_PYTHON_CODE = `import openpyxl as opx
 import datetime as dt
 import math
 
@@ -46,9 +49,9 @@ def pai(filename, sheet_name):
 
     missing_or_invalid_days = expected_days - valid_days
 
-    print(f"\n[Audit] Expected Days in Range: {expected_days}")
+    print(f"\\n[Audit] Expected Days in Range: {expected_days}")
     print(f"[Audit] Actual Valid Days with Data: {valid_days}")
-    print(f"[Audit] Missing or Invalid (Nil/Zero) Days: {missing_or_invalid_days}\n")
+    print(f"[Audit] Missing or Invalid (Nil/Zero) Days: {missing_or_invalid_days}\\n")
 
 
     def tpi():
@@ -186,7 +189,7 @@ def pai(filename, sheet_name):
             tracked_val = row[index_tracked]
 
             if isinstance(tracked_val,(int, float)):
-                sum_of_tracked += tracked_val
+                 sum_of_tracked += tracked_val
 
         if valid_days > 0:
            tui_cal = sum_of_tracked / valid_days
@@ -307,7 +310,7 @@ def pai(filename, sheet_name):
     avg_class_val = avg_class()
     avg_other_val = avg_other_activities()
     avg_free_val = avg_free_unaccounted()
-    print("----------------------------------\n")
+    print("----------------------------------\\n")
 
     final_pai = ((0.15 * tpi_val) + (0.20 * aai_val) + (0.15 * phai_val) +(0.20 * sri_val) +
      (0.15 * tui_val) + (0.10 * ei_val) +(0.05 * dci_val))
@@ -334,3 +337,6 @@ def pai(filename, sheet_name):
             "Average Free / Unaccounted Time/day": f"{round(avg_free_val, 2)} mins/day ({round(avg_free_val/60, 2)} hrs/day)"
         }
     }
+`;
+
+export { generateUniqueStudentPythonCode } from './studentCodeGenerator';
