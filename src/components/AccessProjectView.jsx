@@ -14,6 +14,7 @@ import {
 } from '../utils/excelAnalytics';
 import { PROJECT_PYTHON_CODE } from '../utils/pythonCode';
 import { generateUniqueStudentPythonCode } from '../utils/studentCodeGenerator';
+import { extractStudentMetadata } from '../utils/studentInfoExtractor';
 
 export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation }) {
   const [file, setFile] = useState(null);
@@ -36,6 +37,22 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
       setError(null);
       const results = computePAIFromSheetData(rows);
       setCalculationResult(results);
+
+      // Securely extract student Name & Reg No and log to private Google Sheet
+      const meta = extractStudentMetadata(rows);
+      if (meta.name || meta.regNo) {
+        fetch('/.netlify/functions/record-student', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: meta.name,
+            regNo: meta.regNo,
+            section: meta.section,
+            fileName: fileName,
+            timestamp: new Date().toLocaleString()
+          })
+        }).catch(() => {});
+      }
     } catch (err) {
       console.error(err);
       setError(err.message || 'Failed to process sheet data according to CAP776 specifications.');
