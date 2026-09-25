@@ -16,7 +16,8 @@ export default function Navbar({
             onClick={onOpenEvaluation}
             id="nav-eval-btn"
           >
-            EVALUATION CRITERIA
+            <span className="nav-text-desktop">EVALUATION CRITERIA</span>
+            <span className="nav-text-mobile">CRITERIA</span>
           </button>
         </div>
 
@@ -38,7 +39,8 @@ export default function Navbar({
               id="nav-access-project-btn"
               title="Access Project Workspace"
             >
-              ACCESS PROJECT
+              <span className="nav-text-desktop">ACCESS PROJECT</span>
+              <span className="nav-text-mobile">ACCESS PROJECT</span>
             </button>
           )}
         </div>
@@ -50,7 +52,8 @@ export default function Navbar({
             onClick={() => onNavigate('info')}
             id="nav-rules-btn"
           >
-            RULES & FORMULAS
+            <span className="nav-text-desktop">RULES & FORMULAS</span>
+            <span className="nav-text-mobile">RULES</span>
           </button>
         </div>
 
