@@ -435,25 +435,6 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                 </div>
               </div>
             </div>
-
-            <div className="audit-actions">
-              <button 
-                className="btn-download-py-sm"
-                onClick={handleDownloadPython}
-                title="Download unique student-styled project.py"
-              >
-                {downloadedVariant ? <Check size={14} /> : <Download size={14} />}
-                <span>{downloadedVariant ? "Downloaded!" : "Download Python"}</span>
-              </button>
-              <button 
-                className="btn-copy-json" 
-                onClick={copyResultJson}
-                title="Copy Python-compatible dictionary output"
-              >
-                {copiedJson ? <Check size={14} /> : <Copy size={14} />}
-                <span>{copiedJson ? "Copied Python Dict!" : "Copy Python JSON"}</span>
-              </button>
-            </div>
           </div>
 
           {/* Download Python File Card (Directly Under Audit Warning) */}
