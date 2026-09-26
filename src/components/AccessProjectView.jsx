@@ -4,7 +4,7 @@ import {
   Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, 
   RefreshCw, Download, FileText, FileCode, ChevronRight, BarChart3, 
   Activity, Clock, Moon, Heart, BookOpen, Smile, Database, Sparkles, Copy, Check,
-  Layers, AlertCircle, Info, SlidersHorizontal
+  Layers, AlertCircle, Info, SlidersHorizontal, Calendar
 } from 'lucide-react';
 import { 
   computePAIFromSheetData, 
@@ -409,7 +409,57 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
             </div>
           </div>
 
-          {/* Download Python File Card (Directly Under Audit Warning) */}
+          {/* Smart Date Alignment Advisory Box */}
+          {calculationResult.audit.isDateAligned && (calculationResult.audit.missingDatesCount > 0 || calculationResult.audit.outOfWindowRowsCount > 0) && (
+            <div className="date-alignment-banner">
+              <div className="date-alignment-icon">
+                <Calendar size={22} className="text-amber" />
+              </div>
+              <div className="date-alignment-content">
+                <div className="date-alignment-header-row">
+                  <h4 className="date-alignment-title">
+                    Smart Date-Window Alignment Applied (13 Aug – 21 Sep 2026 Target Window)
+                  </h4>
+                  <span className="badge-stat warn">Rubric Calibrated</span>
+                </div>
+                <p className="date-alignment-desc">
+                  {calculationResult.audit.firstLoggedDate && calculationResult.audit.lastLoggedDate && (
+                    <>Your worksheet contains records spanning from <strong>{calculationResult.audit.firstLoggedDate}</strong> to <strong>{calculationResult.audit.lastLoggedDate}</strong>. </>
+                  )}
+                  The CAP776 syllabus specifically grades the 40 calendar days from <strong>13 Aug 2026 to 21 Sep 2026</strong>. The system has automatically calibrated your dates:
+                </p>
+                <div className="date-alignment-bullet-grid">
+                  {calculationResult.audit.missingDatesCount > 0 && (
+                    <div className="alignment-bullet-item bullet-warn">
+                      <AlertCircle size={15} />
+                      <div>
+                        <strong>{calculationResult.audit.missingDatesCount} Unrecorded Target Day(s):</strong>{' '}
+                        <span>
+                          {calculationResult.audit.missingDates.slice(0, 4).join(', ')}
+                          {calculationResult.audit.missingDates.length > 4 ? ` and ${calculationResult.audit.missingDates.length - 4} more` : ''}{' '}
+                          were not logged during the 13 Aug – 21 Sep evaluation period. They are counted as missing days in the 40-day window.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {calculationResult.audit.outOfWindowRowsCount > 0 && (
+                    <div className="alignment-bullet-item bullet-info">
+                      <Info size={15} />
+                      <div>
+                        <strong>{calculationResult.audit.outOfWindowRowsCount} Out-of-Window Row(s) Excluded:</strong>{' '}
+                        <span>
+                          Rows dated after 21 Sep (e.g.{' '}
+                          {calculationResult.audit.outOfWindowRows.map(r => `${r.shortLabel || r.dateLabel} [Row ${r.excelRowNumber}]`).slice(0, 3).join(', ')}
+                          {calculationResult.audit.outOfWindowRows.length > 3 ? '...' : ''}
+                          ) were excluded from PAI calculation to avoid distorting your 40-day metrics.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           <div className="download-python-banner">
             <div className="download-python-info">
               <div className="python-banner-icon">
@@ -1095,14 +1145,21 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
             <div className="data-inspector-section">
               <div className="inspector-header-row">
                 <div>
-                  <h4 className="inspector-title">Daily Activity Log Inspection (Rows 7 to 46)</h4>
+                  <h4 className="inspector-title">
+                    40-Day Observation Window Log Inspection (13 Aug to 21 Sep 2026)
+                  </h4>
                   <p className="inspector-sub">
-                    Direct validation of each row parsed from Excel worksheet. Row is counted as valid if <code>Total Tracked &gt; 0</code>.
+                    {calculationResult.audit.isDateAligned
+                      ? "Calendar-aligned validation against official CAP776 rubric dates. Rows with Total Tracked > 0 are counted as valid."
+                      : "Sequential row inspection parsed from Excel worksheet. Row is counted as valid if Total Tracked > 0."}
                   </p>
                 </div>
                 <div className="inspector-stats-badges">
                   <span className="badge-stat pass">{calculationResult.audit.validDays} Valid Days</span>
-                  <span className="badge-stat warn">{calculationResult.audit.missingOrInvalidDays} Nil/Missing Days</span>
+                  <span className="badge-stat warn">{calculationResult.audit.missingOrInvalidDays} Nil / Missing Days</span>
+                  {calculationResult.audit.outOfWindowRowsCount > 0 && (
+                    <span className="badge-stat neutral">{calculationResult.audit.outOfWindowRowsCount} Excluded Rows</span>
+                  )}
                 </div>
               </div>
 
@@ -1110,7 +1167,9 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                 <table className="inspector-table">
                   <thead>
                     <tr>
-                      <th>Excel Row</th>
+                      <th>Day #</th>
+                      <th>Target Date</th>
+                      <th>Sheet Row</th>
                       <th>Status</th>
                       <th>Coding</th>
                       <th>Study</th>
@@ -1126,11 +1185,29 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                   </thead>
                   <tbody>
                     {calculationResult.inspectedRows.map((row) => (
-                      <tr key={row.excelRowNumber} className={row.isValid ? 'row-valid' : 'row-invalid'}>
-                        <td><strong>Row {row.excelRowNumber}</strong></td>
+                      <tr 
+                        key={row.dayIndex || row.excelRowNumber} 
+                        className={row.isValid ? 'row-valid' : (row.status === 'Missing from Log' ? 'row-missing' : 'row-invalid')}
+                      >
+                        <td><strong>Day {row.dayIndex}</strong></td>
+                        <td>
+                          <div className="cell-date-box">
+                            <span className="date-main">{row.shortDate || row.date}</span>
+                            {row.dayOfWeek && <span className="date-dow">({row.dayOfWeek})</span>}
+                          </div>
+                        </td>
+                        <td>
+                          {row.excelRowNumber ? (
+                            <span className="row-num-badge">Row {row.excelRowNumber}</span>
+                          ) : (
+                            <span className="text-muted" title="Not logged in uploaded Excel">—</span>
+                          )}
+                        </td>
                         <td>
                           {row.isValid ? (
                             <span className="row-tag-valid">Valid</span>
+                          ) : row.status === 'Missing from Log' ? (
+                            <span className="row-tag-missing">Missing from Log</span>
                           ) : (
                             <span className="row-tag-nil">Nil / Zero</span>
                           )}
@@ -1150,6 +1227,49 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                   </tbody>
                 </table>
               </div>
+
+              {/* Excluded Out-of-Window Rows Table */}
+              {calculationResult.audit.outOfWindowRowsCount > 0 && (
+                <div className="out-of-window-box">
+                  <div className="out-of-window-header">
+                    <AlertTriangle size={17} className="text-amber" />
+                    <div>
+                      <h5 className="out-of-window-title">
+                        Excluded Out-of-Window Rows ({calculationResult.audit.outOfWindowRowsCount} row{calculationResult.audit.outOfWindowRowsCount > 1 ? 's' : ''})
+                      </h5>
+                      <p className="out-of-window-desc">
+                        These records were found in your sheet but have dates outside the official 13 Aug – 21 Sep 2026 rubric window. They were excluded to prevent calculation errors.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="table-responsive-box">
+                    <table className="inspector-table out-of-window-table">
+                      <thead>
+                        <tr>
+                          <th>Sheet Row</th>
+                          <th>Logged Date</th>
+                          <th>Status</th>
+                          <th>Coding (min)</th>
+                          <th>Total Tracked (min)</th>
+                          <th>Exclusion Reason</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {calculationResult.audit.outOfWindowRows.map((r, idx) => (
+                          <tr key={idx} className="row-excluded">
+                            <td><strong>Row {r.excelRowNumber}</strong></td>
+                            <td><strong>{r.dateLabel}</strong></td>
+                            <td><span className="row-tag-excluded">Excluded</span></td>
+                            <td>{r.coding}m</td>
+                            <td><strong>{r.totalTracked}m</strong></td>
+                            <td className="text-muted">{r.reason}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

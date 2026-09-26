@@ -46,6 +46,213 @@ export const TRACKING_WINDOW = {
   expectedDays: 40 // (dt.datetime(2026, 9, 21) - dt.datetime(2026, 8, 13)).days + 1
 };
 
+// 40 Canonical Target Days defined by CAP776 Evaluation Window (13 Aug 2026 to 21 Sep 2026)
+export const CANONICAL_40_DAYS = [
+  // Aug 13 to Aug 31 (19 calendar days)
+  ...Array.from({ length: 19 }, (_, i) => {
+    const day = 13 + i;
+    const dayStr = String(day).padStart(2, "0");
+    const d = new Date(2026, 7, day);
+    return {
+      index: i + 1,
+      month: 8,
+      day: day,
+      key: `08-${dayStr}`,
+      dateStr: `2026-08-${dayStr}`,
+      label: `${day} Aug 2026`,
+      shortLabel: `${day} Aug`,
+      dayOfWeek: d.toLocaleDateString("en-US", { weekday: "short" })
+    };
+  }),
+  // Sep 1 to Sep 21 (21 calendar days)
+  ...Array.from({ length: 21 }, (_, i) => {
+    const day = 1 + i;
+    const dayStr = String(day).padStart(2, "0");
+    const d = new Date(2026, 8, day);
+    return {
+      index: 20 + i,
+      month: 9,
+      day: day,
+      key: `09-${dayStr}`,
+      dateStr: `2026-09-${dayStr}`,
+      label: `${day} Sep 2026`,
+      shortLabel: `${day} Sep`,
+      dayOfWeek: d.toLocaleDateString("en-US", { weekday: "short" })
+    };
+  })
+];
+
+export const CANONICAL_KEY_MAP = new Map(CANONICAL_40_DAYS.map(d => [d.key, d]));
+
+const MONTH_NAME_MAP = {
+  jan: 1, january: 1,
+  feb: 2, february: 2,
+  mar: 3, march: 3,
+  apr: 4, april: 4,
+  may: 5,
+  jun: 6, june: 6,
+  jul: 7, july: 7,
+  aug: 8, august: 8,
+  sep: 9, sept: 9, september: 9,
+  oct: 10, october: 10,
+  nov: 11, november: 11,
+  dec: 12, december: 12
+};
+
+function formatParsedDate(year, month, day) {
+  const mStr = String(month).padStart(2, "0");
+  const dStr = String(day).padStart(2, "0");
+  const key = `${mStr}-${dStr}`;
+  const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const mName = monthNames[month] || mStr;
+  return {
+    year: year || 2026,
+    month,
+    day,
+    key,
+    dateStr: `${year || 2026}-${mStr}-${dStr}`,
+    label: `${day} ${mName} ${year || 2026}`,
+    shortLabel: `${day} ${mName}`
+  };
+}
+
+/**
+ * Robust date parser supporting JS Dates, Excel serial numbers,
+ * and text formats (DD/MM/YYYY, YYYY-MM-DD, 16-Aug, August 16, etc.)
+ */
+export function parseExcelDate(val, prevParsedDate = null) {
+  if (val === null || val === undefined || val === "") return null;
+
+  // Case 1: JavaScript Date instance
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return null;
+    // Add 12 hours (noon shift) to safely counteract timezone offsets or 23:59:59.999 precision loss
+    const noon = new Date(val.getTime() + 12 * 3600 * 1000);
+    return formatParsedDate(noon.getUTCFullYear(), noon.getUTCMonth() + 1, noon.getUTCDate());
+  }
+
+  // Case 2: Numeric Excel serial or plain day
+  if (typeof val === "number") {
+    // Excel serial dates around 2024-2030 (~44000 to ~55000)
+    if (val >= 30000 && val <= 65000) {
+      // 25569 is Jan 1 1970 in Excel 1900 date system
+      const utcMs = Math.round((val - 25569) * 86400 * 1000);
+      const dtObj = new Date(utcMs + 12 * 3600 * 1000);
+      return formatParsedDate(dtObj.getUTCFullYear(), dtObj.getUTCMonth() + 1, dtObj.getUTCDate());
+    }
+    // Case 2b: Plain day of month (1 to 31)
+    if (Number.isInteger(val) && val >= 1 && val <= 31) {
+      let deducedMonth = 8;
+      if (prevParsedDate) {
+        if (prevParsedDate.month === 8) {
+          deducedMonth = (val < prevParsedDate.day) ? 9 : 8;
+        } else {
+          deducedMonth = 9;
+        }
+      } else {
+        deducedMonth = (val >= 13) ? 8 : 9;
+      }
+      return formatParsedDate(2026, deducedMonth, val);
+    }
+  }
+
+  const str = String(val).trim();
+  if (!str) return null;
+  const lower = str.toLowerCase();
+
+  // Skip table header strings
+  if (lower === "date" || lower.includes("dd/mm") || lower === "name" || lower.includes("sentiment") || lower.includes("minutes")) {
+    return null;
+  }
+
+  // Case 3a: ISO string with timestamp (e.g. "2026-08-12T18:29:50.000Z")
+  if (str.includes("T")) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const noon = new Date(d.getTime() + 12 * 3600 * 1000);
+      return formatParsedDate(noon.getUTCFullYear(), noon.getUTCMonth() + 1, noon.getUTCDate());
+    }
+  }
+
+  // Case 3b: ISO format YYYY-MM-DD or YYYY/MM/DD
+  const isoMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (isoMatch) {
+    return formatParsedDate(parseInt(isoMatch[1], 10), parseInt(isoMatch[2], 10), parseInt(isoMatch[3], 10));
+  }
+
+  // Case 3b: Text Month: e.g. "16-Aug-2026", "16 Aug 2026", "16-Aug", "16th August"
+  const textMonthMatch1 = str.match(/^(\d{1,2})(?:st|nd|rd|th)?[\s\-_]+([a-zA-Z]+)(?:[\s\-_]+(\d{2,4}))?/);
+  if (textMonthMatch1) {
+    const d = parseInt(textMonthMatch1[1], 10);
+    const mName = textMonthMatch1[2].toLowerCase().slice(0, 3);
+    const m = MONTH_NAME_MAP[mName];
+    if (m && d >= 1 && d <= 31) {
+      const y = textMonthMatch1[3] ? (textMonthMatch1[3].length === 2 ? 2000 + parseInt(textMonthMatch1[3], 10) : parseInt(textMonthMatch1[3], 10)) : 2026;
+      return formatParsedDate(y, m, d);
+    }
+  }
+
+  const textMonthMatch2 = str.match(/^([a-zA-Z]+)[\s\-_]+(\d{1,2})(?:st|nd|rd|th)?(?:[,\s\-_]+(\d{2,4}))?/);
+  if (textMonthMatch2) {
+    const mName = textMonthMatch2[1].toLowerCase().slice(0, 3);
+    const d = parseInt(textMonthMatch2[2], 10);
+    const m = MONTH_NAME_MAP[mName];
+    if (m && d >= 1 && d <= 31) {
+      const y = textMonthMatch2[3] ? parseInt(textMonthMatch2[3], 10) : 2026;
+      return formatParsedDate(y, m, d);
+    }
+  }
+
+  // Case 3c: DD/MM/YYYY or DD-MM-YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})/);
+  if (dmyMatch) {
+    const n1 = parseInt(dmyMatch[1], 10);
+    const n2 = parseInt(dmyMatch[2], 10);
+    const rawY = parseInt(dmyMatch[3], 10);
+    const y = rawY < 100 ? 2000 + rawY : rawY;
+
+    let d = n1;
+    let m = n2;
+    if (n1 > 12) {
+      d = n1;
+      m = n2;
+    } else if (n2 > 12) {
+      d = n2;
+      m = n1;
+    } else {
+      if (n2 === 8 || n2 === 9) {
+        m = n2;
+        d = n1;
+      } else if (n1 === 8 || n1 === 9) {
+        m = n1;
+        d = n2;
+      }
+    }
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      return formatParsedDate(y, m, d);
+    }
+  }
+
+  // Case 3d: DD/MM or MM/DD without year
+  const shortMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})$/);
+  if (shortMatch) {
+    const n1 = parseInt(shortMatch[1], 10);
+    const n2 = parseInt(shortMatch[2], 10);
+    let d = n1;
+    let m = n2;
+    if (n2 === 8 || n2 === 9) {
+      m = n2;
+      d = n1;
+    } else if (n1 === 8 || n1 === 9) {
+      m = n1;
+      d = n2;
+    }
+    return formatParsedDate(2026, m, d);
+  }
+
+  return null;
+}
+
 /**
  * Clean and normalize column names exactly like project.py:
  * clean_name = str(cell.value).strip().lower().split('(')[0].strip()
@@ -99,84 +306,257 @@ function calculateStdDev(values, mean) {
 
 /**
  * Execute full PAI calculation from raw parsed 2D sheet array (rows x cols)
- * Matches project.py line-by-line:
- * - ws[5] -> Row 5 (index 4 in 0-indexed array)
- * - Rows 7 to 6 + expectedDays -> 0-indexed rows 6 to 45
+ * Date-Aware Window Alignment Engine:
+ * - Scans worksheet for Date column and aligns strictly to 13 Aug – 21 Sep (40 Days)
+ * - Identifies missing start dates (e.g. if logging started 16 Aug, 13–15 Aug are marked missing)
+ * - Excludes post-window dates (e.g. 22–24 Sep) so calculation is not erroneously skewed
+ * - Graceful fallback to sequential row window if no dates are parsed
  */
 export function computePAIFromSheetData(sheetRows) {
   if (!sheetRows || sheetRows.length < 5) {
     throw new Error("Invalid sheet format: Worksheet must contain at least 5 rows with headers in Row 5.");
   }
 
-  // Row 5 in Excel corresponds to 0-indexed row 4
-  const headerRow = sheetRows[4] || [];
-  const columnMap = {}; // clean_name -> columnIndex
+  // Find header row: default is Row 5 (index 4), or scan rows 0 to 6
+  let headerRowIdx = 4;
+  let headerRow = sheetRows[4] || [];
+  let columnMap = {};
 
-  headerRow.forEach((cellVal, colIdx) => {
-    if (cellVal !== undefined && cellVal !== null && cellVal !== "") {
-      const clean = normalizeColumnHeader(cellVal);
-      if (clean) {
-        columnMap[clean] = colIdx;
+  const tryBuildColMap = (row) => {
+    const map = {};
+    if (!row) return map;
+    row.forEach((cellVal, colIdx) => {
+      if (cellVal !== undefined && cellVal !== null && cellVal !== "") {
+        const clean = normalizeColumnHeader(cellVal);
+        if (clean) map[clean] = colIdx;
+      }
+    });
+    return map;
+  };
+
+  columnMap = tryBuildColMap(headerRow);
+  if (!columnMap["total tracked"] && !columnMap["coding"]) {
+    // Scan candidate header rows (rows 0 to 5)
+    for (let r = 0; r < Math.min(6, sheetRows.length); r++) {
+      const candidateMap = tryBuildColMap(sheetRows[r]);
+      if (candidateMap["total tracked"] || candidateMap["coding"]) {
+        headerRowIdx = r;
+        headerRow = sheetRows[r];
+        columnMap = candidateMap;
+        break;
       }
     }
-  });
+  }
 
   // Verify missing columns
   const missingCols = REQUIRED_COLUMNS.filter(col => !(col in columnMap));
-  
-  const expectedDays = TRACKING_WINDOW.expectedDays;
+  const expectedDays = TRACKING_WINDOW.expectedDays; // 40
   const trackedColIdx = columnMap["total tracked"];
+  let dateColIdx = columnMap["date"] ?? columnMap["dates"] ?? columnMap["tracking date"] ?? columnMap["day/date"] ?? columnMap["log date"] ?? columnMap["daily date"] ?? columnMap["day date"] ?? columnMap["timestamp"];
 
-  // Rows 7 to 46 (0-indexed 6 to 45)
-  const minRowIdx = 6;
-  const maxRowIdx = 5 + expectedDays; // index 45 inclusive (40 rows)
-  
-  const inspectedRows = [];
-  let validDays = 0;
+  // Auto-detect date column if not found by header name
+  if (dateColIdx === undefined) {
+    const sampleRows = sheetRows.slice(headerRowIdx + 1, Math.min(headerRowIdx + 15, sheetRows.length));
+    const maxCols = Math.max(...sampleRows.map(r => (r ? r.length : 0)), 15);
+    let bestCol = -1;
+    let maxMatches = 0;
+    for (let c = 0; c < maxCols; c++) {
+      let matches = 0;
+      for (const row of sampleRows) {
+        if (row && parseExcelDate(row[c])) {
+          matches++;
+        }
+      }
+      if (matches > maxMatches && matches >= 2) {
+        maxMatches = matches;
+        bestCol = c;
+      }
+    }
+    if (bestCol !== -1) {
+      dateColIdx = bestCol;
+    }
+  }
 
-  for (let r = minRowIdx; r <= maxRowIdx; r++) {
-    const row = sheetRows[r] || [];
-    let isRowValid = false;
+  // Scan all data rows below the header row
+  const matchedDateMap = {};
+  const outOfWindowRows = [];
+  const allParsedRows = [];
+  let prevDate = null;
 
-    if (trackedColIdx !== undefined && trackedColIdx < row.length) {
-      const val = row[trackedColIdx];
-      const numVal = parseFloat(val);
-      if (!isNaN(numVal) && numVal > 0) {
-        validDays++;
-        isRowValid = true;
+  for (let r = headerRowIdx + 1; r < sheetRows.length; r++) {
+    const row = sheetRows[r];
+    if (!row || row.length === 0 || row.every(c => c === undefined || c === null || c === "")) {
+      continue;
+    }
+
+    let parsedDate = null;
+    if (dateColIdx !== undefined && dateColIdx < row.length) {
+      parsedDate = parseExcelDate(row[dateColIdx], prevDate);
+      if (parsedDate) {
+        prevDate = parsedDate;
       }
     }
 
-    const explicitOther = parseFloat(row[columnMap["other activities"] || columnMap["other"] || columnMap["other activity"]]) || 0;
-    const codingVal = parseFloat(row[columnMap["coding"]]) || 0;
-    const studyVal = parseFloat(row[columnMap["study"]]) || 0;
-    const classVal = parseFloat(row[columnMap["class"]]) || 0;
-    const fitnessVal = parseFloat(row[columnMap["fitness"]]) || 0;
-    const sleepVal = parseFloat(row[columnMap["sleep"]]) || 0;
-    const freeVal = parseFloat(row[columnMap["free/unaccounted"]]) || 0;
-    const totalVal = parseFloat(row[columnMap["total tracked"]]) || 0;
+    if (parsedDate) {
+      allParsedRows.push({ row, excelRowNumber: r + 1, parsedDate });
 
-    // Derived or explicit other activities
-    const otherVal = explicitOther > 0 ? explicitOther : Math.max(0, totalVal - (codingVal + studyVal + classVal + fitnessVal + sleepVal + freeVal));
+      if (CANONICAL_KEY_MAP.has(parsedDate.key)) {
+        if (!matchedDateMap[parsedDate.key]) {
+          matchedDateMap[parsedDate.key] = { row, excelRowNumber: r + 1, parsedDate };
+        }
+      } else {
+        let reason = "Date outside evaluation window";
+        if (parsedDate.month === 9 && parsedDate.day > 21) {
+          reason = `Post-window: ${parsedDate.label} is after the 21 Sep project deadline`;
+        } else if (parsedDate.month > 9) {
+          reason = `Post-window: ${parsedDate.label} is after the September evaluation period`;
+        } else if (parsedDate.month === 8 && parsedDate.day < 13) {
+          reason = `Pre-window: ${parsedDate.label} is prior to the 13 Aug tracking start`;
+        } else if (parsedDate.month < 8) {
+          reason = `Pre-window: ${parsedDate.label} is prior to the August tracking start`;
+        }
 
-    // Extract extracted values for the row for preview/inspection
-    const rowData = {
-      excelRowNumber: r + 1,
-      isValid: isRowValid,
-      coding: codingVal,
-      study: studyVal,
-      class: classVal,
-      fitness: fitnessVal,
-      sleep: sleepVal,
-      otherActivities: otherVal,
-      freeUnaccounted: freeVal,
-      totalTracked: totalVal,
-      feeling: row[columnMap["day's feeling"]] || "",
-      satisfaction: row[columnMap["satisfaction level"]] || "",
-      energy: row[columnMap["energy level"]] || ""
-    };
+        const totalVal = trackedColIdx !== undefined ? parseFloat(row[trackedColIdx]) || 0 : 0;
+        const codingVal = columnMap["coding"] !== undefined ? parseFloat(row[columnMap["coding"]]) || 0 : 0;
 
-    inspectedRows.push(rowData);
+        outOfWindowRows.push({
+          excelRowNumber: r + 1,
+          dateLabel: parsedDate.label,
+          shortLabel: parsedDate.shortLabel,
+          reason,
+          coding: codingVal,
+          totalTracked: totalVal
+        });
+      }
+    }
+  }
+
+  // Determine if Date-Aware Alignment applies (if at least 3 dates match the window)
+  const isDateAligned = Object.keys(matchedDateMap).length >= 3;
+
+  const inspectedRows = [];
+  const missingDates = [];
+  let validDays = 0;
+
+  if (isDateAligned) {
+    // Strictly map each of the 40 Canonical Calendar Days in the official rubric window
+    CANONICAL_40_DAYS.forEach((targetDay) => {
+      const match = matchedDateMap[targetDay.key];
+      if (match) {
+        const row = match.row;
+        let isRowValid = false;
+        const totalVal = (trackedColIdx !== undefined && trackedColIdx < row.length) ? parseFloat(row[trackedColIdx]) || 0 : 0;
+        if (totalVal > 0) {
+          validDays++;
+          isRowValid = true;
+        }
+
+        const explicitOther = parseFloat(row[columnMap["other activities"] || columnMap["other"] || columnMap["other activity"]]) || 0;
+        const codingVal = parseFloat(row[columnMap["coding"]]) || 0;
+        const studyVal = parseFloat(row[columnMap["study"]]) || 0;
+        const classVal = parseFloat(row[columnMap["class"]]) || 0;
+        const fitnessVal = parseFloat(row[columnMap["fitness"]]) || 0;
+        const sleepVal = parseFloat(row[columnMap["sleep"]]) || 0;
+        const freeVal = parseFloat(row[columnMap["free/unaccounted"]]) || 0;
+        const otherVal = explicitOther > 0 ? explicitOther : Math.max(0, totalVal - (codingVal + studyVal + classVal + fitnessVal + sleepVal + freeVal));
+
+        inspectedRows.push({
+          dayIndex: targetDay.index,
+          date: targetDay.label,
+          shortDate: targetDay.shortLabel,
+          dayOfWeek: targetDay.dayOfWeek,
+          excelRowNumber: match.excelRowNumber,
+          isLogged: true,
+          isValid: isRowValid,
+          status: isRowValid ? "Valid" : "Nil / Zero",
+          coding: codingVal,
+          study: studyVal,
+          class: classVal,
+          fitness: fitnessVal,
+          sleep: sleepVal,
+          otherActivities: otherVal,
+          freeUnaccounted: freeVal,
+          totalTracked: totalVal,
+          feeling: row[columnMap["day's feeling"]] || "",
+          satisfaction: row[columnMap["satisfaction level"]] || "",
+          energy: row[columnMap["energy level"]] || ""
+        });
+      } else {
+        // Date was not present in worksheet (e.g. 13-15 Aug when user started 16 Aug)
+        missingDates.push(targetDay.label);
+        inspectedRows.push({
+          dayIndex: targetDay.index,
+          date: targetDay.label,
+          shortDate: targetDay.shortLabel,
+          dayOfWeek: targetDay.dayOfWeek,
+          excelRowNumber: null,
+          isLogged: false,
+          isValid: false,
+          status: "Missing from Log",
+          coding: 0,
+          study: 0,
+          class: 0,
+          fitness: 0,
+          sleep: 0,
+          otherActivities: 0,
+          freeUnaccounted: 0,
+          totalTracked: 0,
+          feeling: "—",
+          satisfaction: "—",
+          energy: "—"
+        });
+      }
+    });
+  } else {
+    // Fallback: sequential row scanning starting at data row (index 6, or 5 if row 5 has values)
+    let startRow = 6;
+    if (sheetRows[5] && trackedColIdx !== undefined) {
+      const val = parseFloat(sheetRows[5][trackedColIdx]);
+      if (!isNaN(val) && val > 0) startRow = 5;
+    }
+
+    for (let i = 0; i < expectedDays; i++) {
+      const r = startRow + i;
+      const row = sheetRows[r] || [];
+      const targetDay = CANONICAL_40_DAYS[i];
+      let isRowValid = false;
+      const totalVal = (trackedColIdx !== undefined && trackedColIdx < row.length) ? parseFloat(row[trackedColIdx]) || 0 : 0;
+      if (totalVal > 0) {
+        validDays++;
+        isRowValid = true;
+      }
+
+      const explicitOther = parseFloat(row[columnMap["other activities"] || columnMap["other"] || columnMap["other activity"]]) || 0;
+      const codingVal = parseFloat(row[columnMap["coding"]]) || 0;
+      const studyVal = parseFloat(row[columnMap["study"]]) || 0;
+      const classVal = parseFloat(row[columnMap["class"]]) || 0;
+      const fitnessVal = parseFloat(row[columnMap["fitness"]]) || 0;
+      const sleepVal = parseFloat(row[columnMap["sleep"]]) || 0;
+      const freeVal = parseFloat(row[columnMap["free/unaccounted"]]) || 0;
+      const otherVal = explicitOther > 0 ? explicitOther : Math.max(0, totalVal - (codingVal + studyVal + classVal + fitnessVal + sleepVal + freeVal));
+
+      inspectedRows.push({
+        dayIndex: i + 1,
+        date: targetDay ? targetDay.label : `Day ${i + 1}`,
+        shortDate: targetDay ? targetDay.shortLabel : `D${i + 1}`,
+        dayOfWeek: targetDay ? targetDay.dayOfWeek : "",
+        excelRowNumber: r + 1,
+        isLogged: row.length > 0,
+        isValid: isRowValid,
+        status: isRowValid ? "Valid" : (row.length > 0 ? "Nil / Zero" : "Missing from Log"),
+        coding: codingVal,
+        study: studyVal,
+        class: classVal,
+        fitness: fitnessVal,
+        sleep: sleepVal,
+        otherActivities: otherVal,
+        freeUnaccounted: freeVal,
+        totalTracked: totalVal,
+        feeling: row[columnMap["day's feeling"]] || "",
+        satisfaction: row[columnMap["satisfaction level"]] || "",
+        energy: row[columnMap["energy level"]] || ""
+      });
+    }
   }
 
   const missingOrInvalidDays = expectedDays - validDays;
@@ -330,15 +710,38 @@ export function computePAIFromSheetData(sheetRows) {
     }
   };
 
+  const firstParsed = allParsedRows[0]?.parsedDate?.label;
+  const lastParsed = allParsedRows[allParsedRows.length - 1]?.parsedDate?.label;
+
+  let alignmentAlert = null;
+  if (isDateAligned && (missingDates.length > 0 || outOfWindowRows.length > 0)) {
+    const parts = [];
+    if (firstParsed) parts.push(`Sheet logs range: ${firstParsed} to ${lastParsed || firstParsed}`);
+    if (missingDates.length > 0) parts.push(`${missingDates.length} rubric day(s) missing (${missingDates.slice(0, 3).join(', ')}${missingDates.length > 3 ? '...' : ''})`);
+    if (outOfWindowRows.length > 0) parts.push(`${outOfWindowRows.length} out-of-window row(s) excluded (e.g. after 21 Sep)`);
+    alignmentAlert = parts.join(" • ");
+  }
+
   return {
     audit: {
       expectedDays,
       validDays,
       missingOrInvalidDays,
       trackedDateRange: `${TRACKING_WINDOW.startDate} to ${TRACKING_WINDOW.endDate}`,
+      startDate: "13 Aug 2026",
+      endDate: "21 Sep 2026",
+      isDateAligned,
+      dateTrackingMode: isDateAligned ? "date-aligned" : "row-fallback",
+      missingDatesCount: missingDates.length,
+      missingDates,
+      outOfWindowRowsCount: outOfWindowRows.length,
+      outOfWindowRows,
+      firstLoggedDate: firstParsed,
+      lastLoggedDate: lastParsed,
+      alignmentAlert,
       columnMap,
       missingCols,
-      isFullyCompliant: missingCols.length === 0 && validDays > 0
+      isFullyCompliant: missingCols.length === 0 && validDays > 0 && missingDates.length === 0
     },
     pai: Number(pai.toFixed(2)),
     indices: {
@@ -613,7 +1016,10 @@ export function generateSampleSheetData() {
   for (let i = 0; i < 40; i++) {
     const currentDate = new Date(startDate);
     currentDate.setDate(startDate.getDate() + i);
-    const dateStr = currentDate.toISOString().split("T")[0];
+    const yStr = currentDate.getFullYear();
+    const mStr = String(currentDate.getMonth() + 1).padStart(2, "0");
+    const dStr = String(currentDate.getDate()).padStart(2, "0");
+    const dateStr = `${yStr}-${mStr}-${dStr}`;
     const dayName = currentDate.toLocaleDateString("en-US", { weekday: "short" });
 
     // Generate balanced realistic numbers
