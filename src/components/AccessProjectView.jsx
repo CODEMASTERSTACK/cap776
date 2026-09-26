@@ -300,29 +300,6 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
               Browse Files
             </button>
           </div>
-
-          <div className="or-divider">OR</div>
-
-          <div className="quick-upload-actions">
-            <button
-              type="button"
-              className="btn-sample-data"
-              onClick={handleLoadSampleData}
-              title="Instantly generate and calculate 40-day sample data"
-            >
-              <Sparkles size={14} />
-              <span>Load Sample 40-Day Log</span>
-            </button>
-            <button
-              type="button"
-              className="btn-download-template"
-              onClick={handleDownloadTemplate}
-              title="Download empty formatted .xlsx template"
-            >
-              <Download size={13} />
-              <span>Download Blank Template</span>
-            </button>
-          </div>
         </div>
 
         {/* Highlighted Active Worksheet Section (Prominently displayed upon upload) */}
