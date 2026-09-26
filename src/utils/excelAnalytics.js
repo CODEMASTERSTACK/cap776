@@ -40,49 +40,65 @@ export const REQUIRED_COLUMNS = [
   "energy level"
 ];
 
+export function buildTrackingWindow(startDateStr = "2026-08-13") {
+  const parts = String(startDateStr || "2026-08-13").split("-").map(Number);
+  const startYear = parts[0] || 2026;
+  const startMonth = parts[1] || 8;
+  const startDay = parts[2] || 13;
+  
+  const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const startDateObj = new Date(startYear, startMonth - 1, startDay, 12, 0, 0);
+
+  // End date is ALWAYS 21 September 2026
+  const deadlineObj = new Date(2026, 8, 21, 12, 0, 0);
+  const msDiff = deadlineObj.getTime() - startDateObj.getTime();
+  const expectedDays = Math.max(1, Math.round(msDiff / (1000 * 3600 * 24)) + 1);
+
+  const targetDays = [];
+  for (let i = 0; i < expectedDays; i++) {
+    const d = new Date(startYear, startMonth - 1, startDay + i, 12, 0, 0);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const day = d.getDate();
+    const mStr = String(m).padStart(2, "0");
+    const dStr = String(day).padStart(2, "0");
+    targetDays.push({
+      index: i + 1,
+      year: y,
+      month: m,
+      day: day,
+      key: `${mStr}-${dStr}`,
+      dateStr: `${y}-${mStr}-${dStr}`,
+      label: `${day} ${monthNames[m]} ${y}`,
+      shortLabel: `${day} ${monthNames[m]}`,
+      dayOfWeek: d.toLocaleDateString("en-US", { weekday: "short" })
+    });
+  }
+
+  const firstDay = targetDays[0];
+  const lastDay = targetDays[targetDays.length - 1];
+
+  return {
+    startDate: firstDay.dateStr,
+    startDateLabel: firstDay.label,
+    endDate: lastDay.dateStr,
+    endDateLabel: lastDay.label,
+    expectedDays,
+    targetDays,
+    keyMap: new Map(targetDays.map(d => [d.key, d]))
+  };
+}
+
 export const TRACKING_WINDOW = {
   startDate: "2026-08-13",
   endDate: "2026-09-21",
   expectedDays: 40 // (dt.datetime(2026, 9, 21) - dt.datetime(2026, 8, 13)).days + 1
 };
 
-// 40 Canonical Target Days defined by CAP776 Evaluation Window (13 Aug 2026 to 21 Sep 2026)
-export const CANONICAL_40_DAYS = [
-  // Aug 13 to Aug 31 (19 calendar days)
-  ...Array.from({ length: 19 }, (_, i) => {
-    const day = 13 + i;
-    const dayStr = String(day).padStart(2, "0");
-    const d = new Date(2026, 7, day);
-    return {
-      index: i + 1,
-      month: 8,
-      day: day,
-      key: `08-${dayStr}`,
-      dateStr: `2026-08-${dayStr}`,
-      label: `${day} Aug 2026`,
-      shortLabel: `${day} Aug`,
-      dayOfWeek: d.toLocaleDateString("en-US", { weekday: "short" })
-    };
-  }),
-  // Sep 1 to Sep 21 (21 calendar days)
-  ...Array.from({ length: 21 }, (_, i) => {
-    const day = 1 + i;
-    const dayStr = String(day).padStart(2, "0");
-    const d = new Date(2026, 8, day);
-    return {
-      index: 20 + i,
-      month: 9,
-      day: day,
-      key: `09-${dayStr}`,
-      dateStr: `2026-09-${dayStr}`,
-      label: `${day} Sep 2026`,
-      shortLabel: `${day} Sep`,
-      dayOfWeek: d.toLocaleDateString("en-US", { weekday: "short" })
-    };
-  })
-];
+// Default CAP776 canonical days
+export const CANONICAL_40_DAYS = buildTrackingWindow("2026-08-13", "fixed_40").targetDays;
 
-export const CANONICAL_KEY_MAP = new Map(CANONICAL_40_DAYS.map(d => [d.key, d]));
+export const CANONICAL_KEY_MAP = buildTrackingWindow("2026-08-13", "fixed_40").keyMap;
 
 const MONTH_NAME_MAP = {
   jan: 1, january: 1,
@@ -254,6 +270,78 @@ export function parseExcelDate(val, prevParsedDate = null) {
 }
 
 /**
+ * Scan worksheet to detect the earliest logged date from student rows.
+ */
+export function detectEarliestSheetDate(sheetRows) {
+  if (!sheetRows || sheetRows.length < 6) return null;
+
+  let headerRowIdx = 4;
+  for (let r = 0; r < Math.min(8, sheetRows.length); r++) {
+    const row = sheetRows[r];
+    if (row && row.some(cell => {
+      const s = String(cell || "").toLowerCase().trim();
+      return s.includes("coding") || s.includes("study") || s.includes("total tracked");
+    })) {
+      headerRowIdx = r;
+      break;
+    }
+  }
+
+  const headerRow = sheetRows[headerRowIdx] || [];
+  let dateColIdx = undefined;
+  for (let c = 0; c < headerRow.length; c++) {
+    const colName = String(headerRow[c] || "").toLowerCase().trim();
+    if (colName === "date" || colName === "dates" || colName.includes("day/date") || colName.includes("log date") || colName === "day") {
+      dateColIdx = c;
+      break;
+    }
+  }
+
+  if (dateColIdx === undefined) {
+    const sampleRows = sheetRows.slice(headerRowIdx + 1, Math.min(headerRowIdx + 15, sheetRows.length));
+    const maxCols = Math.max(...sampleRows.map(r => (r ? r.length : 0)), 15);
+    let bestCol = -1;
+    let maxMatches = 0;
+    for (let c = 0; c < maxCols; c++) {
+      let matches = 0;
+      for (const row of sampleRows) {
+        if (row && parseExcelDate(row[c])) matches++;
+      }
+      if (matches > maxMatches && matches >= 2) {
+        maxMatches = matches;
+        bestCol = c;
+      }
+    }
+    if (bestCol !== -1) dateColIdx = bestCol;
+  }
+
+  if (dateColIdx === undefined) return null;
+
+  let earliest = null;
+  let prevDate = null;
+
+  for (let r = headerRowIdx + 1; r < sheetRows.length; r++) {
+    const row = sheetRows[r];
+    if (!row || row.length === 0) continue;
+    const parsed = parseExcelDate(row[dateColIdx], prevDate);
+    if (parsed) {
+      prevDate = parsed;
+      const ts = new Date(parsed.year || 2026, parsed.month - 1, parsed.day).getTime();
+      if (!earliest || ts < earliest.timestamp) {
+        const dObj = new Date(parsed.year || 2026, parsed.month - 1, parsed.day);
+        earliest = {
+          ...parsed,
+          timestamp: ts,
+          dayOfWeek: dObj.toLocaleDateString("en-US", { weekday: "short" })
+        };
+      }
+    }
+  }
+
+  return earliest ? earliest.dateStr : null;
+}
+
+/**
  * Clean and normalize column names exactly like project.py:
  * clean_name = str(cell.value).strip().lower().split('(')[0].strip()
  */
@@ -272,12 +360,12 @@ export function normalizeColumnHeader(header) {
 export function mapSentiment(category, rawText) {
   if (!rawText) return 0;
   const str = String(rawText).trim();
-  
+
   if (category === "Feeling") {
     const key = str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
     return STRING_TO_VALUE.Feeling[key] || 0;
   }
-  
+
   if (category === "Satisfaction") {
     // project.py: raw_satisfaction.strip().title().replace(" ", "")
     const key = str
@@ -286,12 +374,12 @@ export function mapSentiment(category, rawText) {
       .join("");
     return STRING_TO_VALUE.Satisfaction[key] || 0;
   }
-  
+
   if (category === "Energy") {
     const key = str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
     return STRING_TO_VALUE.Energy[key] || 0;
   }
-  
+
   return 0;
 }
 
@@ -312,10 +400,15 @@ function calculateStdDev(values, mean) {
  * - Excludes post-window dates (e.g. 22–24 Sep) so calculation is not erroneously skewed
  * - Graceful fallback to sequential row window if no dates are parsed
  */
-export function computePAIFromSheetData(sheetRows) {
+export function computePAIFromSheetData(sheetRows, customOptions = {}) {
   if (!sheetRows || sheetRows.length < 5) {
     throw new Error("Invalid sheet format: Worksheet must contain at least 5 rows with headers in Row 5.");
   }
+
+  const startDateOpt = typeof customOptions === 'string' ? customOptions : (customOptions?.startDate || "2026-08-13");
+  const currentWindow = buildTrackingWindow(startDateOpt);
+  const targetDays = currentWindow.targetDays;
+  const targetKeyMap = currentWindow.keyMap;
 
   // Find header row: default is Row 5 (index 4), or scan rows 0 to 6
   let headerRowIdx = 4;
@@ -350,7 +443,7 @@ export function computePAIFromSheetData(sheetRows) {
 
   // Verify missing columns
   const missingCols = REQUIRED_COLUMNS.filter(col => !(col in columnMap));
-  const expectedDays = TRACKING_WINDOW.expectedDays; // 40
+  const expectedDays = currentWindow.expectedDays;
   const trackedColIdx = columnMap["total tracked"];
   let dateColIdx = columnMap["date"] ?? columnMap["dates"] ?? columnMap["tracking date"] ?? columnMap["day/date"] ?? columnMap["log date"] ?? columnMap["daily date"] ?? columnMap["day date"] ?? columnMap["timestamp"];
 
@@ -400,20 +493,20 @@ export function computePAIFromSheetData(sheetRows) {
     if (parsedDate) {
       allParsedRows.push({ row, excelRowNumber: r + 1, parsedDate });
 
-      if (CANONICAL_KEY_MAP.has(parsedDate.key)) {
+      if (targetKeyMap.has(parsedDate.key)) {
         if (!matchedDateMap[parsedDate.key]) {
           matchedDateMap[parsedDate.key] = { row, excelRowNumber: r + 1, parsedDate };
         }
       } else {
-        let reason = "Date outside evaluation window";
-        if (parsedDate.month === 9 && parsedDate.day > 21) {
-          reason = `Post-window: ${parsedDate.label} is after the 21 Sep project deadline`;
-        } else if (parsedDate.month > 9) {
-          reason = `Post-window: ${parsedDate.label} is after the September evaluation period`;
-        } else if (parsedDate.month === 8 && parsedDate.day < 13) {
-          reason = `Pre-window: ${parsedDate.label} is prior to the 13 Aug tracking start`;
-        } else if (parsedDate.month < 8) {
-          reason = `Pre-window: ${parsedDate.label} is prior to the August tracking start`;
+        const rowD = new Date(parsedDate.year || 2026, parsedDate.month - 1, parsedDate.day);
+        const winStart = new Date(targetDays[0].year, targetDays[0].month - 1, targetDays[0].day);
+        const winEnd = new Date(targetDays[targetDays.length - 1].year, targetDays[targetDays.length - 1].month - 1, targetDays[targetDays.length - 1].day);
+
+        let reason = "Date outside tracking window";
+        if (rowD < winStart) {
+          reason = `Pre-window: ${parsedDate.label} is prior to tracking start (${currentWindow.startDateLabel})`;
+        } else if (rowD > winEnd) {
+          reason = `Post-window: ${parsedDate.label} is after window end date (${currentWindow.endDateLabel})`;
         }
 
         const totalVal = trackedColIdx !== undefined ? parseFloat(row[trackedColIdx]) || 0 : 0;
@@ -439,8 +532,8 @@ export function computePAIFromSheetData(sheetRows) {
   let validDays = 0;
 
   if (isDateAligned) {
-    // Strictly map each of the 40 Canonical Calendar Days in the official rubric window
-    CANONICAL_40_DAYS.forEach((targetDay) => {
+    // Strictly map each of the target Calendar Days in the configured window
+    targetDays.forEach((targetDay) => {
       const match = matchedDateMap[targetDay.key];
       if (match) {
         const row = match.row;
@@ -518,7 +611,7 @@ export function computePAIFromSheetData(sheetRows) {
     for (let i = 0; i < expectedDays; i++) {
       const r = startRow + i;
       const row = sheetRows[r] || [];
-      const targetDay = CANONICAL_40_DAYS[i];
+      const targetDay = targetDays[i];
       let isRowValid = false;
       const totalVal = (trackedColIdx !== undefined && trackedColIdx < row.length) ? parseFloat(row[trackedColIdx]) || 0 : 0;
       if (totalVal > 0) {
@@ -727,9 +820,13 @@ export function computePAIFromSheetData(sheetRows) {
       expectedDays,
       validDays,
       missingOrInvalidDays,
-      trackedDateRange: `${TRACKING_WINDOW.startDate} to ${TRACKING_WINDOW.endDate}`,
-      startDate: "13 Aug 2026",
-      endDate: "21 Sep 2026",
+      trackedDateRange: `${currentWindow.startDate} to ${currentWindow.endDate}`,
+      startDate: currentWindow.startDateLabel,
+      endDate: currentWindow.endDateLabel,
+      startDateStr: currentWindow.startDate,
+      endDateStr: currentWindow.endDate,
+      windowMode: currentWindow.windowMode,
+      targetDaysCount: targetDays.length,
       isDateAligned,
       dateTrackingMode: isDateAligned ? "date-aligned" : "row-fallback",
       missingDatesCount: missingDates.length,
@@ -965,15 +1062,21 @@ function analyzeRelationships(validRows) {
  * Generate a realistic 40-day sample dataset matching project.py specifications
  * so the user can test all calculations immediately without needing an external file.
  */
-export function generateSampleSheetData() {
+export function generateSampleSheetData(customStartDate = "2026-08-13") {
   const data = [];
-  
+
+  const parts = String(customStartDate || "2026-08-13").split("-").map(Number);
+  const startYear = parts[0] || 2026;
+  const startMonth = parts[1] || 8;
+  const startDay = parts[2] || 13;
+  const win = buildTrackingWindow(customStartDate);
+
   // Row 1-4: Title / Metadata headers
   data.push(["CAP776 Mini Project: Student Daily Activity Log"]);
   data.push(["Student: Demonstration Cohort", "Roll: Demo-101", "Registration: 12100000"]);
-  data.push(["Window: 13 Aug 2026 to 21 Sep 2026 (40 Expected Logging Days)"]);
+  data.push([`Window: ${win.startDateLabel} to ${win.endDateLabel} (${win.expectedDays} Expected Logging Days)`]);
   data.push([]); // Blank Row 4
-  
+
   // Row 5: Column headers (ws[5])
   data.push([
     "Date",
@@ -1006,14 +1109,14 @@ export function generateSampleSheetData() {
     "Sentiment"
   ]);
 
-  // Rows 7 to 46: 40 Days of realistic tracking data
+  // Rows 7 onward: Expected days of realistic tracking data
   const feelings = ["Good", "Excellent", "Neutral", "Good", "Stressed", "Good", "Excellent"];
   const satisfactions = ["Satisfied", "Verysatisfied", "Neutral", "Satisfied", "Unsatisfied", "Satisfied", "Verysatisfied"];
   const energies = ["High", "Medium", "High", "High", "Low", "Medium", "High"];
 
-  const startDate = new Date(2026, 7, 13); // Aug 13, 2026
+  const startDate = new Date(startYear, startMonth - 1, startDay, 12, 0, 0);
 
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < win.expectedDays; i++) {
     const currentDate = new Date(startDate);
     currentDate.setDate(startDate.getDate() + i);
     const yStr = currentDate.getFullYear();
@@ -1024,7 +1127,7 @@ export function generateSampleSheetData() {
 
     // Generate balanced realistic numbers
     const isWeekend = dayName === "Sat" || dayName === "Sun";
-    
+
     // Day 24 simulated as a rest/missed day to test valid_days auditing
     if (i === 23) {
       data.push([

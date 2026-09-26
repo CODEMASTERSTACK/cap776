@@ -1,20 +1,23 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { 
-  Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle, 
-  RefreshCw, Download, FileText, FileCode, ChevronRight, BarChart3, 
+import {
+  Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, XCircle,
+  RefreshCw, Download, FileText, FileCode, ChevronRight, BarChart3,
   Activity, Clock, Moon, Heart, BookOpen, Smile, Database, Sparkles, Copy, Check,
   Layers, AlertCircle, Info, SlidersHorizontal, Calendar
 } from 'lucide-react';
-import { 
-  computePAIFromSheetData, 
-  generateSampleSheetData, 
-  REQUIRED_COLUMNS, 
-  TRACKING_WINDOW 
+import {
+  computePAIFromSheetData,
+  generateSampleSheetData,
+  buildTrackingWindow,
+  detectEarliestSheetDate,
+  REQUIRED_COLUMNS,
+  TRACKING_WINDOW
 } from '../utils/excelAnalytics';
 import { PROJECT_PYTHON_CODE } from '../utils/pythonCode';
 import { generateUniqueStudentPythonCode } from '../utils/studentCodeGenerator';
 import { extractSheetMetadata } from '../utils/sheetMetadata';
+import StartDateSelector from './StartDateSelector';
 
 export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation }) {
   const [file, setFile] = useState(null);
@@ -30,12 +33,32 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
   const [variantCount, setVariantCount] = useState(0);
   const fileInputRef = useRef(null);
 
+  // Student Start Date Settings (End date is always 21 Sep 2026)
+  const [startDate, setStartDate] = useState("2026-08-13");
+  const [detectedDate, setDetectedDate] = useState(null);
+  const [currentSheetRows, setCurrentSheetRows] = useState(null);
+  const [currentFileName, setCurrentFileName] = useState('student_data.xlsx');
+
+  const currentTrackingWindow = buildTrackingWindow(startDate);
+
   // Process a loaded 2D array of sheet data
-  const processSheetRows = (rows, fileName = 'student_data.xlsx') => {
+  const processSheetRows = (rows, fileName = 'student_data.xlsx', customStartDate = startDate) => {
     try {
       setIsProcessing(true);
       setError(null);
-      const results = computePAIFromSheetData(rows);
+      setCurrentSheetRows(rows);
+      setCurrentFileName(fileName);
+
+      // Detect earliest date in student sheet
+      const detected = detectEarliestSheetDate(rows);
+      if (detected) {
+        const detectedStr = typeof detected === 'object' ? (detected.dateStr || null) : String(detected);
+        setDetectedDate(detectedStr);
+      } else {
+        setDetectedDate(null);
+      }
+
+      const results = computePAIFromSheetData(rows, { startDate: customStartDate });
       setCalculationResult(results);
 
       // Parse metadata and dispatch telemetry
@@ -51,13 +74,20 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
             fileName: fileName,
             timestamp: new Date().toLocaleString()
           })
-        }).catch(() => {});
+        }).catch(() => { });
       }
     } catch (err) {
       console.error(err);
       setError(err.message || 'Failed to process sheet data according to CAP776 specifications.');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleStartDateChange = (newDate) => {
+    setStartDate(newDate);
+    if (currentSheetRows) {
+      processSheetRows(currentSheetRows, currentFileName, newDate);
     }
   };
 
@@ -77,7 +107,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
         const wb = XLSX.read(buffer, { type: 'array' });
         setRawWorkbook(wb);
         setSheetNames(wb.SheetNames);
-        
+
         // Auto-select first sheet
         const firstSheet = wb.SheetNames[0];
         setSelectedSheet(firstSheet);
@@ -120,7 +150,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
     setError(null);
     setFile({ name: 'sample_student_log_40days.xlsx', size: 14200 });
 
-    const sampleRows = generateSampleSheetData();
+    const sampleRows = generateSampleSheetData(startDate);
     const wb = XLSX.utils.book_new();
     const ws1 = XLSX.utils.aoa_to_sheet(sampleRows);
     XLSX.utils.book_append_sheet(wb, ws1, 'Daily Tracking Log');
@@ -128,7 +158,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
     // Add a second informational sheet so user can test switching worksheets
     const ws2 = XLSX.utils.aoa_to_sheet([
       ['CAP776 Mini Project Guidelines'],
-      ['Student Data Recorded from 13 Aug to 21 Sep 2026'],
+      [`Student Data Recorded from ${currentTrackingWindow.startDateLabel} to ${currentTrackingWindow.endDateLabel}`],
       ['Switch to "Daily Tracking Log" tab for calculations']
     ]);
     XLSX.utils.book_append_sheet(wb, ws2, 'Project Overview & Rubric');
@@ -138,13 +168,13 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
     setSelectedSheet('Daily Tracking Log');
 
     setTimeout(() => {
-      processSheetRows(sampleRows, 'sample_student_log_40days.xlsx');
+      processSheetRows(sampleRows, 'sample_student_log_40days.xlsx', startDate, windowMode);
     }, 200);
   };
 
   // Generate and download a real formatted .xlsx template
   const handleDownloadTemplate = () => {
-    const sampleRows = generateSampleSheetData();
+    const sampleRows = generateSampleSheetData(startDate);
     const ws = XLSX.utils.aoa_to_sheet(sampleRows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Daily Tracking Log');
@@ -182,8 +212,8 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
 
   const handleDownloadPython = () => {
     try {
-      // Dynamically generate a distinct, humanized student python script
-      const uniqueCode = generateUniqueStudentPythonCode();
+      // Dynamically generate a distinct, humanized student python script with chosen start date
+      const uniqueCode = generateUniqueStudentPythonCode({ startDate, windowMode });
       const blob = new Blob([uniqueCode], { type: 'text/x-python;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -211,16 +241,21 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
 
   return (
     <div className="access-project-container">
-      
+
       {/* Minimalist Editorial Page Header */}
       <div className="minimal-page-header">
         <p className="minimal-page-subtext">
           Upload your student tracking Excel workbook to calculate all 8 sub-indices, daily averages, and generate python code.
         </p>
         <h1 className="minimal-page-title">PROJECT WORKSPACE</h1>
-        <p className="minimal-page-note">
-          Tracking Target: 13 Aug – 21 Sep 2026 (40 Days)
-        </p>
+
+        {/* Small, Minimal, Compact Start Date Selector */}
+        <StartDateSelector
+          startDate={startDate}
+          onChangeStartDate={handleStartDateChange}
+          detectedDate={detectedDate}
+          trackingWindow={currentTrackingWindow}
+        />
       </div>
 
       {/* File Ingestion Card */}
@@ -238,8 +273,8 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
 
         <div className="upload-controls-row">
           {/* Hidden real file input */}
-          <input 
-            type="file" 
+          <input
+            type="file"
             ref={fileInputRef}
             onChange={handleFileUpload}
             accept=".xlsx, .xls"
@@ -248,7 +283,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
           />
 
           {/* Drag & Drop / Select Box */}
-          <div 
+          <div
             className={`dropzone-box ${file ? 'has-file' : ''}`}
             onClick={() => fileInputRef.current?.click()}
           >
@@ -263,6 +298,29 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
             </div>
             <button type="button" className="btn-select-file">
               Browse Files
+            </button>
+          </div>
+
+          <div className="or-divider">OR</div>
+
+          <div className="quick-upload-actions">
+            <button
+              type="button"
+              className="btn-sample-data"
+              onClick={handleLoadSampleData}
+              title="Instantly generate and calculate 40-day sample data"
+            >
+              <Sparkles size={14} />
+              <span>Load Sample 40-Day Log</span>
+            </button>
+            <button
+              type="button"
+              className="btn-download-template"
+              onClick={handleDownloadTemplate}
+              title="Download empty formatted .xlsx template"
+            >
+              <Download size={13} />
+              <span>Download Blank Template</span>
             </button>
           </div>
         </div>
@@ -296,9 +354,9 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                   <label htmlFor="sheet-dropdown-select" className="dropdown-mini-label">
                     Quick Switch:
                   </label>
-                  <select 
+                  <select
                     id="sheet-dropdown-select"
-                    value={selectedSheet} 
+                    value={selectedSheet}
                     onChange={(e) => handleSheetChange(e.target.value)}
                     className="spotlight-select-menu"
                   >
@@ -381,7 +439,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
       {/* Calculation Results Display */}
       {calculationResult && !isProcessing && (
         <div className="analytics-dashboard">
-          
+
           {/* Audit Status Bar */}
           <div className={`audit-status-bar ${calculationResult.audit.isFullyCompliant ? 'status-pass' : 'status-warn'}`}>
             <div className="audit-left">
@@ -392,8 +450,8 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
               )}
               <div>
                 <h4 className="audit-title">
-                  {calculationResult.audit.isFullyCompliant 
-                    ? "Dataset Audit Passed: 10/10 Column Requirements Met" 
+                  {calculationResult.audit.isFullyCompliant
+                    ? "Dataset Audit Passed: 10/10 Column Requirements Met"
                     : `Audit Warning: ${calculationResult.audit.missingCols.length} Column(s) Missing`}
                 </h4>
                 <div className="audit-metrics">
@@ -418,15 +476,15 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
               <div className="date-alignment-content">
                 <div className="date-alignment-header-row">
                   <h4 className="date-alignment-title">
-                    Smart Date-Window Alignment Applied (13 Aug – 21 Sep 2026 Target Window)
+                    Smart Date-Window Alignment Applied ({calculationResult.audit.startDate} – {calculationResult.audit.endDate} Target Window)
                   </h4>
-                  <span className="badge-stat warn">Rubric Calibrated</span>
+                  <span className="badge-stat warn">Calibrated</span>
                 </div>
                 <p className="date-alignment-desc">
                   {calculationResult.audit.firstLoggedDate && calculationResult.audit.lastLoggedDate && (
                     <>Your worksheet contains records spanning from <strong>{calculationResult.audit.firstLoggedDate}</strong> to <strong>{calculationResult.audit.lastLoggedDate}</strong>. </>
                   )}
-                  The CAP776 syllabus specifically grades the 40 calendar days from <strong>13 Aug 2026 to 21 Sep 2026</strong>. The system has automatically calibrated your dates:
+                  Grading the {calculationResult.audit.expectedDays} calendar days from <strong>{calculationResult.audit.startDate} to {calculationResult.audit.endDate}</strong>. The system has automatically calibrated your dates:
                 </p>
                 <div className="date-alignment-bullet-grid">
                   {calculationResult.audit.missingDatesCount > 0 && (
@@ -437,7 +495,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                         <span>
                           {calculationResult.audit.missingDates.slice(0, 4).join(', ')}
                           {calculationResult.audit.missingDates.length > 4 ? ` and ${calculationResult.audit.missingDates.length - 4} more` : ''}{' '}
-                          were not logged during the 13 Aug – 21 Sep evaluation period. They are counted as missing days in the 40-day window.
+                          were not logged during the {calculationResult.audit.startDate} – {calculationResult.audit.endDate} evaluation period. They are counted as missing days in the {calculationResult.audit.expectedDays}-day window.
                         </span>
                       </div>
                     </div>
@@ -482,7 +540,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                 )}
               </div>
             </div>
-            <button 
+            <button
               className={`btn-download-python-card ${downloadedVariant ? 'btn-download-success' : ''}`}
               onClick={handleDownloadPython}
               title="Download fresh humanized variant of project.py"
@@ -539,35 +597,35 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
 
           {/* Navigation Sub-Tabs */}
           <div className="analytics-tabs-row">
-            <button 
+            <button
               className={`analytics-tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
               onClick={() => setActiveTab('overview')}
             >
               <Activity size={15} />
               <span>All 8 Sub-Indices</span>
             </button>
-            <button 
+            <button
               className={`analytics-tab-btn ${activeTab === 'daily-averages' ? 'active' : ''}`}
               onClick={() => setActiveTab('daily-averages')}
             >
               <Clock size={15} />
               <span>Daily Averages (7 Activities)</span>
             </button>
-            <button 
+            <button
               className={`analytics-tab-btn ${activeTab === 'relationships' ? 'active' : ''}`}
               onClick={() => setActiveTab('relationships')}
             >
               <BarChart3 size={15} />
               <span>Relationship Analysis (10 Marks)</span>
             </button>
-            <button 
+            <button
               className={`analytics-tab-btn ${activeTab === 'data-inspector' ? 'active' : ''}`}
               onClick={() => setActiveTab('data-inspector')}
             >
               <Database size={15} />
               <span>40-Day Row Inspector (Rows 7–46)</span>
             </button>
-            <button 
+            <button
               className={`analytics-tab-btn ${activeTab === 'python-output' ? 'active' : ''}`}
               onClick={() => setActiveTab('python-output')}
             >
@@ -579,7 +637,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
           {/* TAB 1: 8 Sub-Indices Grid (First Section) */}
           {activeTab === 'overview' && (
             <div className="indices-metrics-grid">
-              
+
               {/* TPI */}
               <div className="index-stat-card">
                 <div className="card-stat-header">
@@ -746,7 +804,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
               </div>
 
               <div className="daily-averages-grid">
-                
+
                 {/* 1. Average Sleep/day */}
                 <div className="daily-avg-card card-sleep">
                   <div className="avg-card-top">
@@ -777,8 +835,8 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                     </div>
                   </div>
                   <div className="day-proportion-track">
-                    <div 
-                      className="day-proportion-fill fill-sleep" 
+                    <div
+                      className="day-proportion-fill fill-sleep"
                       style={{ width: `${Math.min(100, (calculationResult.dailyAverages.sleep.minutes / 1440) * 100)}%` }}
                     />
                   </div>
@@ -817,8 +875,8 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                     </div>
                   </div>
                   <div className="day-proportion-track">
-                    <div 
-                      className="day-proportion-fill fill-fitness" 
+                    <div
+                      className="day-proportion-fill fill-fitness"
                       style={{ width: `${Math.min(100, (calculationResult.dailyAverages.fitness.minutes / 1440) * 100)}%` }}
                     />
                   </div>
@@ -857,8 +915,8 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                     </div>
                   </div>
                   <div className="day-proportion-track">
-                    <div 
-                      className="day-proportion-fill fill-study" 
+                    <div
+                      className="day-proportion-fill fill-study"
                       style={{ width: `${Math.min(100, (calculationResult.dailyAverages.study.minutes / 1440) * 100)}%` }}
                     />
                   </div>
@@ -897,8 +955,8 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                     </div>
                   </div>
                   <div className="day-proportion-track">
-                    <div 
-                      className="day-proportion-fill fill-coding" 
+                    <div
+                      className="day-proportion-fill fill-coding"
                       style={{ width: `${Math.min(100, (calculationResult.dailyAverages.coding.minutes / 1440) * 100)}%` }}
                     />
                   </div>
@@ -937,8 +995,8 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                     </div>
                   </div>
                   <div className="day-proportion-track">
-                    <div 
-                      className="day-proportion-fill fill-class" 
+                    <div
+                      className="day-proportion-fill fill-class"
                       style={{ width: `${Math.min(100, (calculationResult.dailyAverages.classTime.minutes / 1440) * 100)}%` }}
                     />
                   </div>
@@ -977,8 +1035,8 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                     </div>
                   </div>
                   <div className="day-proportion-track">
-                    <div 
-                      className="day-proportion-fill fill-other" 
+                    <div
+                      className="day-proportion-fill fill-other"
                       style={{ width: `${Math.min(100, (calculationResult.dailyAverages.otherActivities.minutes / 1440) * 100)}%` }}
                     />
                   </div>
@@ -1017,8 +1075,8 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                     </div>
                   </div>
                   <div className="day-proportion-track">
-                    <div 
-                      className="day-proportion-fill fill-free" 
+                    <div
+                      className="day-proportion-fill fill-free"
                       style={{ width: `${Math.min(100, (calculationResult.dailyAverages.freeUnaccounted.minutes / 1440) * 100)}%` }}
                     />
                   </div>
@@ -1042,7 +1100,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
               </div>
 
               <div className="rel-cards-grid">
-                
+
                 {/* 1. Sleep vs Energy Level */}
                 <div className="rel-analysis-card">
                   <div className="rel-card-top">
@@ -1146,7 +1204,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
               <div className="inspector-header-row">
                 <div>
                   <h4 className="inspector-title">
-                    40-Day Observation Window Log Inspection (13 Aug to 21 Sep 2026)
+                    {calculationResult.audit.expectedDays}-Day Observation Window Log Inspection ({calculationResult.audit.startDate} to {calculationResult.audit.endDate})
                   </h4>
                   <p className="inspector-sub">
                     {calculationResult.audit.isDateAligned
@@ -1185,8 +1243,8 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                   </thead>
                   <tbody>
                     {calculationResult.inspectedRows.map((row) => (
-                      <tr 
-                        key={row.dayIndex || row.excelRowNumber} 
+                      <tr
+                        key={row.dayIndex || row.excelRowNumber}
                         className={row.isValid ? 'row-valid' : (row.status === 'Missing from Log' ? 'row-missing' : 'row-invalid')}
                       >
                         <td><strong>Day {row.dayIndex}</strong></td>
@@ -1238,7 +1296,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                         Excluded Out-of-Window Rows ({calculationResult.audit.outOfWindowRowsCount} row{calculationResult.audit.outOfWindowRowsCount > 1 ? 's' : ''})
                       </h5>
                       <p className="out-of-window-desc">
-                        These records were found in your sheet but have dates outside the official 13 Aug – 21 Sep 2026 rubric window. They were excluded to prevent calculation errors.
+                        These records were found in your sheet but have dates outside the {calculationResult.audit.startDate} – {calculationResult.audit.endDate} window. They were excluded to prevent calculation errors.
                       </p>
                     </div>
                   </div>
@@ -1294,7 +1352,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
                 </button>
               </div>
               <pre className="terminal-body">
-{`[Audit] Expected Days in Range: ${calculationResult.audit.expectedDays}
+                {`[Audit] Expected Days in Range: ${calculationResult.audit.expectedDays}
 [Audit] Actual Valid Days with Data: ${calculationResult.audit.validDays}
 [Audit] Missing or Invalid (Nil/Zero) Days: ${calculationResult.audit.missingOrInvalidDays}
 
@@ -1315,27 +1373,27 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
 
 >>> Output Dictionary:
 ${JSON.stringify({
-  "Personal Activity Index: ": calculationResult.pai,
-  "breakdown": {
-    "Tech Productivity Index is: ": calculationResult.indices.tpi.value,
-    "Academic Activity Index: ": calculationResult.indices.aai.value,
-    "Physical Activity Index: ": calculationResult.indices.phai.value,
-    "Sleep and Recovery Index: ": calculationResult.indices.sri.value,
-    "Time Utilisation Index: ": calculationResult.indices.tui.value,
-    "Experience Index: ": calculationResult.indices.ei.value,
-    "Active Balance Index: ": calculationResult.indices.abi.value,
-    "Data Continuity Index": calculationResult.indices.dci.value
-  },
-  "daily_averages": {
-    "Average Sleep/day": `${calculationResult.dailyAverages.sleep.minutes} mins/day (${calculationResult.dailyAverages.sleep.hours} hrs/day)`,
-    "Average Fitness/day": `${calculationResult.dailyAverages.fitness.minutes} mins/day (${calculationResult.dailyAverages.fitness.hours} hrs/day)`,
-    "Average Study/day": `${calculationResult.dailyAverages.study.minutes} mins/day (${calculationResult.dailyAverages.study.hours} hrs/day)`,
-    "Average Coding/day": `${calculationResult.dailyAverages.coding.minutes} mins/day (${calculationResult.dailyAverages.coding.hours} hrs/day)`,
-    "Average Class/day": `${calculationResult.dailyAverages.classTime.minutes} mins/day (${calculationResult.dailyAverages.classTime.hours} hrs/day)`,
-    "Average Other Activities/day": `${calculationResult.dailyAverages.otherActivities.minutes} mins/day (${calculationResult.dailyAverages.otherActivities.hours} hrs/day)`,
-    "Average Free / Unaccounted Time/day": `${calculationResult.dailyAverages.freeUnaccounted.minutes} mins/day (${calculationResult.dailyAverages.freeUnaccounted.hours} hrs/day)`
-  }
-}, null, 2)}`}
+                  "Personal Activity Index: ": calculationResult.pai,
+                  "breakdown": {
+                    "Tech Productivity Index is: ": calculationResult.indices.tpi.value,
+                    "Academic Activity Index: ": calculationResult.indices.aai.value,
+                    "Physical Activity Index: ": calculationResult.indices.phai.value,
+                    "Sleep and Recovery Index: ": calculationResult.indices.sri.value,
+                    "Time Utilisation Index: ": calculationResult.indices.tui.value,
+                    "Experience Index: ": calculationResult.indices.ei.value,
+                    "Active Balance Index: ": calculationResult.indices.abi.value,
+                    "Data Continuity Index": calculationResult.indices.dci.value
+                  },
+                  "daily_averages": {
+                    "Average Sleep/day": `${calculationResult.dailyAverages.sleep.minutes} mins/day (${calculationResult.dailyAverages.sleep.hours} hrs/day)`,
+                    "Average Fitness/day": `${calculationResult.dailyAverages.fitness.minutes} mins/day (${calculationResult.dailyAverages.fitness.hours} hrs/day)`,
+                    "Average Study/day": `${calculationResult.dailyAverages.study.minutes} mins/day (${calculationResult.dailyAverages.study.hours} hrs/day)`,
+                    "Average Coding/day": `${calculationResult.dailyAverages.coding.minutes} mins/day (${calculationResult.dailyAverages.coding.hours} hrs/day)`,
+                    "Average Class/day": `${calculationResult.dailyAverages.classTime.minutes} mins/day (${calculationResult.dailyAverages.classTime.hours} hrs/day)`,
+                    "Average Other Activities/day": `${calculationResult.dailyAverages.otherActivities.minutes} mins/day (${calculationResult.dailyAverages.otherActivities.hours} hrs/day)`,
+                    "Average Free / Unaccounted Time/day": `${calculationResult.dailyAverages.freeUnaccounted.minutes} mins/day (${calculationResult.dailyAverages.freeUnaccounted.hours} hrs/day)`
+                  }
+                }, null, 2)}`}
               </pre>
             </div>
           )}
