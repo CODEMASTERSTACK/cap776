@@ -168,7 +168,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
     setSelectedSheet('Daily Tracking Log');
 
     setTimeout(() => {
-      processSheetRows(sampleRows, 'sample_student_log_40days.xlsx', startDate, windowMode);
+      processSheetRows(sampleRows, 'sample_student_log_40days.xlsx', startDate);
     }, 200);
   };
 
@@ -213,7 +213,7 @@ export default function AccessProjectView({ onBackToWelcome, onOpenEvaluation })
   const handleDownloadPython = () => {
     try {
       // Dynamically generate a distinct, humanized student python script with chosen start date
-      const uniqueCode = generateUniqueStudentPythonCode({ startDate, windowMode });
+      const uniqueCode = generateUniqueStudentPythonCode({ startDate });
       const blob = new Blob([uniqueCode], { type: 'text/x-python;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
