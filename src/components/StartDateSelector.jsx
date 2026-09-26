@@ -75,26 +75,28 @@ export default function StartDateSelector({
         )}
       </div>
 
-      <div className="compact-date-divider" aria-hidden="true" />
+      <div className="compact-date-divider desktop-only" aria-hidden="true" />
 
       {/* Quick Preset Pills */}
       <div className="compact-preset-pills">
         <span className="compact-pills-label">Quick:</span>
-        {COMMON_PRESETS.map((p) => {
-          const isSelected = startDate === p.date;
-          return (
-            <button
-              key={p.date}
-              type="button"
-              className={`compact-pill-btn ${isSelected ? 'active' : ''}`}
-              onClick={() => onChangeStartDate(p.date)}
-              title={`Set start date to ${p.label} 2026`}
-            >
-              <span>{p.label}</span>
-              {isSelected && <Check size={11} className="compact-pill-check" />}
-            </button>
-          );
-        })}
+        <div className="compact-pills-wrap">
+          {COMMON_PRESETS.map((p) => {
+            const isSelected = startDate === p.date;
+            return (
+              <button
+                key={p.date}
+                type="button"
+                className={`compact-pill-btn ${isSelected ? 'active' : ''}`}
+                onClick={() => onChangeStartDate(p.date)}
+                title={`Set start date to ${p.label} 2026`}
+              >
+                <span>{p.label}</span>
+                {isSelected && <Check size={11} className="compact-pill-check" />}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Auto-detected from sheet alert pill */}

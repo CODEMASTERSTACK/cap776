@@ -474,8 +474,6 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  flex-wrap: wrap;
-  justify-content: center;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 9999px;
@@ -487,6 +485,7 @@ body {
   color: #1e293b;
   transition: all 0.2s ease;
   max-width: 100%;
+  box-sizing: border-box;
 }
 
 .compact-start-date-bar:hover {
@@ -498,6 +497,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  flex-shrink: 0;
 }
 
 .compact-date-label-wrap {
@@ -509,6 +509,7 @@ body {
   font-size: 0.75rem;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .compact-date-icon {
@@ -555,6 +556,7 @@ body {
   padding: 0.15rem 0.35rem;
   border-radius: 4px;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .compact-reset-btn:hover {
@@ -567,12 +569,13 @@ body {
   height: 18px;
   background-color: #e2e8f0;
   margin: 0 0.1rem;
+  flex-shrink: 0;
 }
 
 .compact-preset-pills {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 .compact-pills-label {
@@ -581,6 +584,13 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   margin-right: 0.1rem;
+  white-space: nowrap;
+}
+
+.compact-pills-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .compact-pill-btn {
@@ -599,6 +609,7 @@ body {
   transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   white-space: nowrap;
   line-height: 1.2;
+  box-sizing: border-box;
 }
 
 .compact-pill-btn:hover {
@@ -631,6 +642,7 @@ body {
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .compact-detected-chip:hover {
@@ -646,35 +658,232 @@ body {
 .compact-window-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.16rem 0.45rem;
+  gap: 0.45rem;
+  padding: 0.16rem 0.55rem;
   border-radius: 9999px;
   background: #f8fafc;
-  border: 1px solid #f1f5f9;
+  border: 1px solid #e2e8f0;
   color: #475569;
-  font-size: 0.71rem;
+  font-size: 0.72rem;
   font-weight: 500;
   white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.window-range-text {
+  color: #475569;
+  font-weight: 500;
 }
 
 .window-mode-tag {
   background: #e2e8f0;
-  padding: 0.06rem 0.3rem;
+  padding: 0.06rem 0.35rem;
   border-radius: 9999px;
   font-size: 0.66rem;
   font-weight: 700;
   color: #334155;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
-@media (max-width: 768px) {
+/* Responsive Start Date Selector on Tablets & Mobile (<= 992px) */
+@media (max-width: 992px) {
   .compact-start-date-bar {
-    border-radius: 12px;
-    padding: 0.5rem 0.65rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 480px;
+    box-sizing: border-box;
+    border-radius: 16px;
+    padding: 0.85rem 0.95rem;
+    gap: 0.65rem;
+    margin-top: 0.85rem;
+    overflow: visible;
+  }
+
+  .compact-date-divider.desktop-only {
+    display: none !important;
+  }
+
+  /* Row 1: Start Date Input + Label + Reset */
+  .compact-date-main-group {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
     gap: 0.45rem;
   }
-  .compact-date-divider.desktop-only {
-    display: none;
+
+  .compact-date-label-wrap {
+    font-size: 0.76rem;
+  }
+
+  .compact-date-native-input {
+    height: 30px;
+    font-size: 0.82rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    max-width: 140px;
+  }
+
+  .compact-reset-btn {
+    height: 30px;
+    font-size: 0.72rem;
+    padding: 0.2rem 0.55rem;
+    background: #f1f5f9;
+    border-radius: 6px;
+  }
+
+  /* Row 2: Quick Presets Section */
+  .compact-preset-pills {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .compact-pills-label {
+    display: block;
+    width: 100%;
+    text-align: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0;
+  }
+
+  .compact-pills-wrap {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+  }
+
+  .compact-pill-btn {
+    font-size: 0.73rem;
+    padding: 0.24rem 0.52rem;
+    border-radius: 9999px;
+  }
+
+  /* Auto-detected Alert Chip */
+  .compact-detected-chip {
+    width: 100%;
+    max-width: 360px;
+    box-sizing: border-box;
+    justify-content: center;
+    white-space: normal;
+    text-align: center;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.74rem;
+    border-radius: 8px;
+  }
+
+  /* Row 3: Computed Window Badge */
+  .compact-window-badge {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem 0.65rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.74rem;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+    text-align: center;
+  }
+
+  .window-range-text {
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 0.74rem;
+  }
+
+  .window-mode-tag {
+    font-size: 0.68rem;
+    padding: 0.12rem 0.45rem;
+  }
+
+  .date-alignment-banner {
+    flex-direction: column;
+    padding: 0.85rem;
+    gap: 0.65rem;
+  }
+
+  .date-alignment-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .date-alignment-title {
+    font-size: 0.88rem;
+    word-break: break-word;
+  }
+}
+
+/* Small Smartphone Optimization (<= 480px) */
+@media (max-width: 480px) {
+  .compact-start-date-bar {
+    padding: 0.75rem 0.6rem;
+    gap: 0.55rem;
+    border-radius: 14px;
+  }
+
+  .compact-date-main-group {
+    gap: 0.35rem;
+  }
+
+  .compact-date-native-input {
+    width: 125px;
+    font-size: 0.76rem;
+    height: 28px;
+    padding: 0.15rem 0.4rem;
+  }
+
+  .compact-pill-btn {
+    font-size: 0.71rem;
+    padding: 0.2rem 0.45rem;
+  }
+
+  .compact-window-badge {
+    padding: 0.35rem 0.55rem;
+    gap: 0.25rem 0.45rem;
+  }
+
+  .window-range-text {
+    font-size: 0.72rem;
+  }
+
+  .window-mode-tag {
+    font-size: 0.66rem;
+    padding: 0.1rem 0.4rem;
+  }
+}
+
+/* Very Narrow Phones (<= 340px) */
+@media (max-width: 340px) {
+  .compact-start-date-bar {
+    padding: 0.65rem 0.4rem;
+  }
+
+  .compact-date-native-input {
+    width: 115px;
+    font-size: 0.72rem;
+  }
+
+  .compact-pill-btn {
+    font-size: 0.68rem;
+    padding: 0.18rem 0.38rem;
   }
 }
 
