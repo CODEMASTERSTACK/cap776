@@ -1,17 +1,17 @@
 import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { extractSheetMetadata } from '../utils/sheetMetadata';
-import { 
-  FileSpreadsheet, 
-  FileText, 
-  FileCode, 
-  UploadCloud, 
-  CheckCircle2, 
-  AlertTriangle, 
-  XCircle, 
-  Download, 
-  RefreshCw, 
-  ShieldCheck, 
+import {
+  FileSpreadsheet,
+  FileText,
+  FileCode,
+  UploadCloud,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  Download,
+  RefreshCw,
+  ShieldCheck,
   Info,
   Server,
   ArrowRight
@@ -29,7 +29,7 @@ const parseClientXlsxMetadata = (file) => {
           const sheetName = wb.SheetNames.includes('Daily Log') ? 'Daily Log' : wb.SheetNames[0];
           const ws = wb.Sheets[sheetName];
           const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-          
+
           const meta = extractSheetMetadata(rows);
 
           // Direct cell fallbacks (CAP776 prescribed workbook format: B2=Name, F2=Reg, B3=Section)
@@ -330,13 +330,13 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
   return (
     <div className="your-eval-page">
       <div className="your-eval-container">
-        
+
         {/* Editorial Header */}
         <header className="your-eval-header">
           <h1 className="your-eval-title">YOUR EVALUATION</h1>
           <p className="your-eval-subtext">Preliminary Score Testing Sandbox</p>
           <p className="your-eval-description">
-            Test your project files against the faculty's independent recalculation engine before final submission.
+            <strong>Worksheet name should be: <b style={{color: '#D44D5C'}}>Daily Log </b></strong>
           </p>
 
           {/* Highlighted Warning Banner (One-Liner) */}
@@ -357,15 +357,15 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
         {!result ? (
           <div className="your-eval-card upload-section">
             <div className="upload-grid">
-              
+
               {/* 1. XLSX Upload */}
               <div className={`dropzone-card ${xlsxFile ? 'active' : ''}`} onClick={() => xlsxInputRef.current?.click()}>
-                <input 
-                  type="file" 
-                  ref={xlsxInputRef} 
-                  accept=".xlsx" 
-                  onChange={(e) => handleFileChange(e, 'xlsx')} 
-                  style={{ display: 'none' }} 
+                <input
+                  type="file"
+                  ref={xlsxInputRef}
+                  accept=".xlsx"
+                  onChange={(e) => handleFileChange(e, 'xlsx')}
+                  style={{ display: 'none' }}
                 />
                 <div className="dropzone-icon">
                   <FileSpreadsheet size={32} />
@@ -388,12 +388,12 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
 
               {/* 2. DOCX Report Upload */}
               <div className={`dropzone-card ${reportFile ? 'active' : ''}`} onClick={() => reportInputRef.current?.click()}>
-                <input 
-                  type="file" 
-                  ref={reportInputRef} 
-                  accept=".docx" 
-                  onChange={(e) => handleFileChange(e, 'report')} 
-                  style={{ display: 'none' }} 
+                <input
+                  type="file"
+                  ref={reportInputRef}
+                  accept=".docx"
+                  onChange={(e) => handleFileChange(e, 'report')}
+                  style={{ display: 'none' }}
                 />
                 <div className="dropzone-icon">
                   <FileText size={32} />
@@ -416,12 +416,12 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
 
               {/* 3. Python Code Upload */}
               <div className={`dropzone-card ${codeFile ? 'active' : ''}`} onClick={() => codeInputRef.current?.click()}>
-                <input 
-                  type="file" 
-                  ref={codeInputRef} 
-                  accept=".py" 
-                  onChange={(e) => handleFileChange(e, 'code')} 
-                  style={{ display: 'none' }} 
+                <input
+                  type="file"
+                  ref={codeInputRef}
+                  accept=".py"
+                  onChange={(e) => handleFileChange(e, 'code')}
+                  style={{ display: 'none' }}
                 />
                 <div className="dropzone-icon">
                   <FileCode size={32} />
@@ -474,7 +474,7 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
 
             {/* Submit Action */}
             <div className="eval-action-bar">
-              <button 
+              <button
                 className="btn-evaluate-primary"
                 onClick={handleEvaluate}
                 disabled={loading || !xlsxFile || !reportFile}
@@ -486,7 +486,7 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
                   </>
                 ) : (
                   <>
-                    <span>🚀 RUN PRE-EVALUATION</span>
+                    <span>RUN PRE-EVALUATION</span>
                     <ArrowRight size={18} />
                   </>
                 )}
@@ -499,7 +499,7 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
              RESULTS VIEW
              ========================================================== */
           <div className="results-container">
-            
+
             {/* Top Score Banner */}
             <div className="your-eval-card score-hero-card">
               <div className="student-meta-strip">
@@ -632,7 +632,7 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
 
             {/* 2. Relationship Analysis & Rubric Breakdown */}
             <div className="two-col-grid">
-              
+
               {/* Left: Rubric Breakdown */}
               <div className="your-eval-card">
                 <h3 className="section-title">2. Rubric Breakdown</h3>
@@ -650,9 +650,9 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
                           </span>
                         </div>
                         <div className="rubric-bar-track">
-                          <div 
-                            className={`rubric-bar-fill ${pct === 100 ? 'full' : pct >= 70 ? 'good' : 'warning'}`} 
-                            style={{ width: `${pct}%` }} 
+                          <div
+                            className={`rubric-bar-fill ${pct === 100 ? 'full' : pct >= 70 ? 'good' : 'warning'}`}
+                            style={{ width: `${pct}%` }}
                           />
                         </div>
                       </div>

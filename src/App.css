@@ -5167,8 +5167,13 @@ body {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Results View */
@@ -5635,7 +5640,7 @@ body {
   .your-eval-page {
     padding: 1.25rem 0.85rem;
   }
-  
+
   .your-eval-container {
     gap: 1.25rem;
   }

@@ -45,7 +45,7 @@ export function buildTrackingWindow(startDateStr = "2026-08-13") {
   const startYear = parts[0] || 2026;
   const startMonth = parts[1] || 8;
   const startDay = parts[2] || 13;
-  
+
   const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const startDateObj = new Date(startYear, startMonth - 1, startDay, 12, 0, 0);
 
