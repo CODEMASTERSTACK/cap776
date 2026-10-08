@@ -55,26 +55,42 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
     }
 
     try {
-      const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '') || '/api';
-      const candidateUrls = [
-        `${apiBase}/evaluate`,
-        'http://localhost:8000/api/evaluate'
-      ];
+      const rawApiBase = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+      const candidateUrls = [];
+
+      if (rawApiBase) {
+        if (rawApiBase.endsWith('/api')) {
+          candidateUrls.push(`${rawApiBase}/evaluate`);
+        } else {
+          candidateUrls.push(`${rawApiBase}/api/evaluate`);
+          candidateUrls.push(`${rawApiBase}/evaluate`);
+        }
+      } else {
+        candidateUrls.push('/api/evaluate');
+        candidateUrls.push('/evaluate');
+      }
+      candidateUrls.push('http://localhost:8000/api/evaluate');
+      candidateUrls.push('http://localhost:8000/evaluate');
 
       let response;
       let lastErr;
 
       for (const url of candidateUrls) {
         try {
-          response = await fetch(url, {
+          const res = await fetch(url, {
             method: 'POST',
             body: formData,
           });
           // If Netlify SPA redirects return index.html instead of JSON API response
-          const contentType = response.headers.get('content-type') || '';
+          const contentType = res.headers.get('content-type') || '';
           if (contentType.includes('text/html')) {
             continue;
           }
+          // If endpoint is 404, try next candidate URL
+          if (res.status === 404) {
+            continue;
+          }
+          response = res;
           break;
         } catch (err) {
           lastErr = err;
@@ -93,10 +109,23 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
         );
       }
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(`Server returned HTTP ${response.status} with unparseable response.`);
+      }
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Evaluation failed. Please check file formatting.');
+        let msg = data?.error;
+        if (!msg && data?.detail) {
+          if (typeof data.detail === 'string') {
+            msg = data.detail;
+          } else if (Array.isArray(data.detail)) {
+            msg = data.detail.map((d) => d.msg || JSON.stringify(d)).join('; ');
+          }
+        }
+        throw new Error(msg || (response.status === 404 ? 'Evaluation API endpoint not found (404).' : 'Evaluation failed. Please check file formatting.'));
       }
 
       setResult(data);

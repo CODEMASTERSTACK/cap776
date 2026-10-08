@@ -462,6 +462,8 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+@app.get("/health")
 @app.get("/api/health")
 def health():
     return {
@@ -472,6 +474,7 @@ def health():
     }
 
 
+@app.post("/evaluate")
 @app.post("/api/evaluate")
 async def evaluate(
     xlsx: UploadFile = File(...),
