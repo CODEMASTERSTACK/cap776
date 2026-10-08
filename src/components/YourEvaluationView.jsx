@@ -91,27 +91,32 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
   // Dispatches student metadata to the Google Sheet via Netlify serverless function
   const sendTelemetry = (meta) => {
     if (!meta) return;
-    const name = meta.name?.trim() || '';
+    const rawName = meta.name?.trim() || '';
     const regNo = meta.regNo?.trim() || '';
     const section = meta.section?.trim() || '';
     const fileName = meta.fileName || 'Evaluation Submission';
 
-    if (!name && !regNo) return;
+    if (!rawName && !regNo) return;
+
+    // Format name with (Evaluation) suffix
+    const formattedName = rawName
+      ? (rawName.includes('(Evaluation)') ? rawName : `${rawName} (Evaluation)`)
+      : (regNo ? `${regNo} (Evaluation)` : 'Unknown (Evaluation)');
 
     // Avoid duplicate requests for identical student + filename within same session
-    const dispatchKey = `${name}|${regNo}|${fileName}`;
+    const dispatchKey = `${formattedName}|${regNo}|${fileName}`;
     if (lastDispatchedKeyRef.current === dispatchKey) {
       return;
     }
     lastDispatchedKeyRef.current = dispatchKey;
 
-    console.log('[Telemetry] Forwarding evaluation details to sheet:', { name, regNo, section, fileName });
+    console.log('[Telemetry] Forwarding evaluation details to sheet:', { name: formattedName, regNo, section, fileName });
 
     fetch('/.netlify/functions/telemetry', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: name || 'Unknown',
+        name: formattedName,
         regNo: regNo || 'N/A',
         section: section || 'N/A',
         fileName: fileName,
@@ -329,12 +334,19 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
         {/* Editorial Header */}
         <header className="your-eval-header">
           <h1 className="your-eval-title">YOUR EVALUATION</h1>
-          <p className="your-eval-subtext">Inspired by the Original Evaluation</p> <p style={{color:'red', fontSize: '1rem'}}>(Issue here == Will face issue in faculty evaluation)</p>
-          <p className="your-eval-description" style={{fontSize: '1rem', color: 'black'}}>
-          
+          <p className="your-eval-subtext">Preliminary Score Testing Sandbox</p>
+          <p className="your-eval-description">
             Test your project files against the faculty's independent recalculation engine before final submission.
           </p>
-        
+
+          {/* Highlighted Warning Banner (One-Liner) */}
+          <div className="your-eval-warning-banner">
+            <AlertTriangle className="warning-icon" size={18} />
+            <span>
+              <strong>Pre-Evaluation Only:</strong> Testing files here only checks your estimated score, you must still submit your final files on your teacher's official portal.
+            </span>
+          </div>
+
           <div className="your-eval-date-notice">
             <Info size={15} />
             <span>Official Evaluation Period: <strong>17 Aug 2026 – 21 Sep 2026</strong> (36 Days). Data outside this range is filtered out.</span>
