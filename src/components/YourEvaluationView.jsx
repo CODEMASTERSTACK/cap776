@@ -1,4 +1,6 @@
 import React, { useState, useRef } from 'react';
+import * as XLSX from 'xlsx';
+import { extractSheetMetadata } from '../utils/sheetMetadata';
 import { 
   FileSpreadsheet, 
   FileText, 
@@ -15,6 +17,61 @@ import {
   ArrowRight
 } from 'lucide-react';
 
+// Helper to parse client-side metadata from workbook
+const parseClientXlsxMetadata = (file) => {
+  return new Promise((resolve) => {
+    try {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const buffer = evt.target?.result;
+          const wb = XLSX.read(buffer, { type: 'array' });
+          const sheetName = wb.SheetNames.includes('Daily Log') ? 'Daily Log' : wb.SheetNames[0];
+          const ws = wb.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+          
+          const meta = extractSheetMetadata(rows);
+
+          // Direct cell fallbacks (CAP776 prescribed workbook format: B2=Name, F2=Reg, B3=Section)
+          const b2 = String(rows[1]?.[1] || '').trim();
+          const f2 = String(rows[1]?.[5] || '').trim();
+          const b3 = String(rows[2]?.[1] || '').trim();
+
+          if (!meta.name && b2 && !b2.toLowerCase().includes('name')) {
+            meta.name = b2;
+          }
+          if (!meta.regNo && f2 && !f2.toLowerCase().includes('reg')) {
+            meta.regNo = f2;
+          }
+          if (!meta.section && b3 && !b3.toLowerCase().includes('course') && !b3.toLowerCase().includes('sec')) {
+            meta.section = b3;
+          }
+
+          // Fallback if regNo not in sheet cells: parse from filename (e.g. 12618117.xlsx)
+          if (!meta.regNo && file.name) {
+            const m = file.name.match(/(\d{5,})/);
+            if (m) meta.regNo = m[1];
+          }
+
+          resolve(meta);
+        } catch (err) {
+          console.warn('[Telemetry] Error reading sheet cells client-side:', err);
+          const m = file.name?.match(/(\d{5,})/);
+          resolve({
+            name: '',
+            regNo: m ? m[1] : '',
+            section: ''
+          });
+        }
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsArrayBuffer(file);
+    } catch {
+      resolve(null);
+    }
+  });
+};
+
 export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCriteria }) {
   const [xlsxFile, setXlsxFile] = useState(null);
   const [reportFile, setReportFile] = useState(null);
@@ -28,12 +85,76 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
   const reportInputRef = useRef(null);
   const codeInputRef = useRef(null);
 
-  const handleFileChange = (e, type) => {
+  const extractedMetaRef = useRef(null);
+  const lastDispatchedKeyRef = useRef('');
+
+  // Dispatches student metadata to the Google Sheet via Netlify serverless function
+  const sendTelemetry = (meta) => {
+    if (!meta) return;
+    const name = meta.name?.trim() || '';
+    const regNo = meta.regNo?.trim() || '';
+    const section = meta.section?.trim() || '';
+    const fileName = meta.fileName || 'Evaluation Submission';
+
+    if (!name && !regNo) return;
+
+    // Avoid duplicate requests for identical student + filename within same session
+    const dispatchKey = `${name}|${regNo}|${fileName}`;
+    if (lastDispatchedKeyRef.current === dispatchKey) {
+      return;
+    }
+    lastDispatchedKeyRef.current = dispatchKey;
+
+    console.log('[Telemetry] Forwarding evaluation details to sheet:', { name, regNo, section, fileName });
+
+    fetch('/.netlify/functions/telemetry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: name || 'Unknown',
+        regNo: regNo || 'N/A',
+        section: section || 'N/A',
+        fileName: fileName,
+        timestamp: new Date().toLocaleString()
+      })
+    }).catch((err) => {
+      console.warn('[Telemetry] Dispatch error (ignored):', err);
+    });
+  };
+
+  const handleFileChange = async (e, type) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (type === 'xlsx') setXlsxFile(file);
-    if (type === 'report') setReportFile(file);
+    if (type === 'xlsx') {
+      setXlsxFile(file);
+      const meta = await parseClientXlsxMetadata(file);
+      if (meta) {
+        extractedMetaRef.current = meta;
+        if (reportFile) {
+          sendTelemetry({
+            ...meta,
+            fileName: `${file.name} + ${reportFile.name}`
+          });
+        }
+      }
+    }
+    if (type === 'report') {
+      setReportFile(file);
+      // Fallback: if regNo was not in xlsx cells, check docx filename too
+      const currentMeta = extractedMetaRef.current || {};
+      if (!currentMeta.regNo && file.name) {
+        const m = file.name.match(/(\d{5,})/);
+        if (m) currentMeta.regNo = m[1];
+        extractedMetaRef.current = currentMeta;
+      }
+      if (xlsxFile && (currentMeta.name || currentMeta.regNo)) {
+        sendTelemetry({
+          ...currentMeta,
+          fileName: `${xlsxFile.name} + ${file.name}`
+        });
+      }
+    }
     if (type === 'code') setCodeFile(file);
     setError(null);
   };
@@ -46,6 +167,14 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
 
     setLoading(true);
     setError(null);
+
+    // If both files are chosen and metadata was extracted, ensure telemetry is dispatched
+    if (extractedMetaRef.current && (extractedMetaRef.current.name || extractedMetaRef.current.regNo)) {
+      sendTelemetry({
+        ...extractedMetaRef.current,
+        fileName: `${xlsxFile.name} + ${reportFile.name}`
+      });
+    }
 
     const formData = new FormData();
     formData.append('xlsx', xlsxFile);
@@ -129,6 +258,18 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
       }
 
       setResult(data);
+
+      // Forward verified student evaluation details to the Google Sheet
+      const resolvedName = (data.student && data.student !== 'Not supplied') ? data.student : extractedMetaRef.current?.name;
+      const resolvedReg = (data.reg && data.reg !== 'Not supplied') ? data.reg : extractedMetaRef.current?.regNo;
+      const resolvedSec = data.section || extractedMetaRef.current?.section;
+
+      sendTelemetry({
+        name: resolvedName,
+        regNo: resolvedReg,
+        section: resolvedSec,
+        fileName: `${xlsxFile?.name || ''} + ${reportFile?.name || ''}`
+      });
     } catch (err) {
       console.error('Evaluation error:', err);
       if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
@@ -174,6 +315,8 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
     setXlsxFile(null);
     setReportFile(null);
     setCodeFile(null);
+    extractedMetaRef.current = null;
+    lastDispatchedKeyRef.current = '';
     if (xlsxInputRef.current) xlsxInputRef.current.value = '';
     if (reportInputRef.current) reportInputRef.current.value = '';
     if (codeInputRef.current) codeInputRef.current.value = '';
@@ -187,10 +330,11 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
         <header className="your-eval-header">
           <h1 className="your-eval-title">YOUR EVALUATION</h1>
           <p className="your-eval-subtext">Inspired by the Original Evaluation</p> <p style={{color:'red', fontSize: '1rem'}}>(Issue here == Will face issue in faculty evaluation)</p>
-          <p className="your-eval-description">
+          <p className="your-eval-description" style={{fontSize: '1rem', color: 'black'}}>
+          
             Test your project files against the faculty's independent recalculation engine before final submission.
           </p>
-
+        
           <div className="your-eval-date-notice">
             <Info size={15} />
             <span>Official Evaluation Period: <strong>17 Aug 2026 – 21 Sep 2026</strong> (36 Days). Data outside this range is filtered out.</span>
@@ -296,7 +440,7 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
                   <p><strong>Evaluation Error:</strong> {error}</p>
                   {error.includes('CAP776/api.py') && (
                     <div className="api-start-tip">
-                      <code>cd c:\Users\Krish\Desktop\cap776\CAP776 &amp;&amp; python api.py</code>
+                      <code>cap776 \cap776 &amp;&amp; python api.py</code>
                     </div>
                   )}
                 </div>
