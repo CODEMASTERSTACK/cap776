@@ -157,7 +157,7 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
         {/* Editorial Header */}
         <header className="your-eval-header">
           <h1 className="your-eval-title">YOUR EVALUATION</h1>
-          <p className="your-eval-subtext">Inspired by the Original Evaluation</p> <p style={{color:'red', fontSize: '1rem'}}>(Issue here == Issue in original version)</p>
+          <p className="your-eval-subtext">Inspired by the Original Evaluation</p> <p style={{color:'red', fontSize: '1rem'}}>(Issue here == Will face issue in faculty evaluation)</p>
           <p className="your-eval-description">
             Test your project files against the faculty's independent recalculation engine before final submission.
           </p>
