@@ -23,7 +23,7 @@ export default function Navbar({
 
         {/* Middle: Fades between ACCESS PROJECT and CAP776 Home */}
         <div className="minimal-nav-center">
-          {currentView === 'access-project' ? (
+          {currentView === 'access-project' || currentView === 'your-evaluation' ? (
             <button 
               className="minimal-nav-link nav-home-brand-btn"
               onClick={() => onNavigate('welcome')}
@@ -45,8 +45,18 @@ export default function Navbar({
           )}
         </div>
 
-        {/* Right Corner: Rules & Formulas */}
+        {/* Right Corner: Your Evaluation & Rules */}
         <div className="minimal-nav-right">
+          <button 
+            className={`minimal-nav-link ${currentView === 'your-evaluation' ? 'active' : ''}`}
+            onClick={() => onNavigate('your-evaluation')}
+            id="nav-your-eval-btn"
+            style={{ marginRight: 'clamp(0.75rem, 1.8vw, 1.75rem)' }}
+          >
+            <span className="nav-text-desktop">YOUR EVALUATION</span>
+            <span className="nav-text-mobile">EVALUATE</span>
+          </button>
+
           <button 
             className={`minimal-nav-link ${currentView === 'info' ? 'active' : ''}`}
             onClick={() => onNavigate('info')}

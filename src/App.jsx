@@ -3,6 +3,7 @@ import Navbar from './components/Navbar';
 import WelcomeView from './components/WelcomeView';
 import ProjectInfoView from './components/ProjectInfoView';
 import AccessProjectView from './components/AccessProjectView';
+import YourEvaluationView from './components/YourEvaluationView';
 import ProceedModal from './components/ProceedModal';
 import EvaluationModal from './components/EvaluationModal';
 import DisclaimerModal from './components/DisclaimerModal';
@@ -11,7 +12,7 @@ import { projectData } from './data/projectData';
 import './App.css';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState('welcome'); // 'welcome' | 'info' | 'access-project'
+  const [currentView, setCurrentView] = useState('welcome'); // 'welcome' | 'info' | 'access-project' | 'your-evaluation'
   const [isProceedModalOpen, setIsProceedModalOpen] = useState(false);
   const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false);
   const [isDisclaimerModalOpen, setIsDisclaimerModalOpen] = useState(false);
@@ -90,6 +91,13 @@ export default function App() {
           <AccessProjectView 
             onBackToWelcome={() => handleNavigate('welcome')}
             onOpenEvaluation={() => setIsEvaluationModalOpen(true)}
+          />
+        )}
+
+        {currentView === 'your-evaluation' && (
+          <YourEvaluationView 
+            onBackToWelcome={() => handleNavigate('welcome')}
+            onOpenEvaluationCriteria={() => setIsEvaluationModalOpen(true)}
           />
         )}
       </main>
