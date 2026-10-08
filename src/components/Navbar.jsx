@@ -24,47 +24,71 @@ export default function Navbar({
         {/* Middle: Fades between ACCESS PROJECT and CAP776 Home */}
         <div className="minimal-nav-center">
           {currentView === 'access-project' || currentView === 'your-evaluation' ? (
-            <button 
+            <a 
+              href="/"
               className="minimal-nav-link nav-home-brand-btn"
-              onClick={() => onNavigate('welcome')}
+              onClick={(e) => {
+                if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                  e.preventDefault();
+                  onNavigate('welcome');
+                }
+              }}
               id="nav-cap776-home-btn"
               title="Return to Welcome Screen"
             >
               CAP776
-            </button>
+            </a>
           ) : (
-            <button 
+            <a 
+              href="/access-project"
               className="minimal-nav-link center-link"
-              onClick={() => onNavigate('access-project')}
+              onClick={(e) => {
+                if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                  e.preventDefault();
+                  onNavigate('access-project');
+                }
+              }}
               id="nav-access-project-btn"
               title="Access Project Workspace"
             >
               <span className="nav-text-desktop">ACCESS PROJECT</span>
               <span className="nav-text-mobile">ACCESS PROJECT</span>
-            </button>
+            </a>
           )}
         </div>
 
         {/* Right Corner: Your Evaluation & Rules */}
         <div className="minimal-nav-right">
-          <button 
+          <a 
+            href="/yourevaluation"
             className={`minimal-nav-link ${currentView === 'your-evaluation' ? 'active' : ''}`}
-            onClick={() => onNavigate('your-evaluation')}
+            onClick={(e) => {
+              if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                e.preventDefault();
+                onNavigate('your-evaluation');
+              }
+            }}
             id="nav-your-eval-btn"
             style={{ marginRight: 'clamp(0.75rem, 1.8vw, 1.75rem)' }}
           >
             <span className="nav-text-desktop">YOUR EVALUATION</span>
             <span className="nav-text-mobile">EVALUATE</span>
-          </button>
+          </a>
 
-          <button 
+          <a 
+            href="/rules"
             className={`minimal-nav-link ${currentView === 'info' ? 'active' : ''}`}
-            onClick={() => onNavigate('info')}
+            onClick={(e) => {
+              if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                e.preventDefault();
+                onNavigate('info');
+              }
+            }}
             id="nav-rules-btn"
           >
             <span className="nav-text-desktop">RULES & FORMULAS</span>
             <span className="nav-text-mobile">RULES</span>
-          </button>
+          </a>
         </div>
 
       </div>

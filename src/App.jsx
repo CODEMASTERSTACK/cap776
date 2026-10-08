@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import WelcomeView from './components/WelcomeView';
 import ProjectInfoView from './components/ProjectInfoView';
@@ -11,11 +11,68 @@ import Footer from './components/Footer';
 import { projectData } from './data/projectData';
 import './App.css';
 
+const ROUTE_MAP = {
+  'welcome': '/',
+  'info': '/rules',
+  'access-project': '/access-project',
+  'your-evaluation': '/yourevaluation',
+};
+
+const getViewFromPath = (pathname) => {
+  const clean = (pathname || window.location.pathname || '/').toLowerCase().replace(/\/+$/, '') || '/';
+  if (clean === '/yourevaluation' || clean === '/your-evaluation' || clean === '/evaluation') {
+    return 'your-evaluation';
+  }
+  if (clean === '/access-project' || clean === '/project') {
+    return 'access-project';
+  }
+  if (clean === '/rules' || clean === '/info' || clean === '/rules-and-formulas') {
+    return 'info';
+  }
+  return 'welcome';
+};
+
+const getTitleFromView = (view) => {
+  switch (view) {
+    case 'your-evaluation':
+      return 'CAP776 — Your Evaluation & Assessment Engine';
+    case 'access-project':
+      return 'CAP776 — Project Workspace';
+    case 'info':
+      return 'CAP776 — Rules & Formulas';
+    case 'welcome':
+    default:
+      return 'CAP776 — Continuous Activity Profiler';
+  }
+};
+
 export default function App() {
-  const [currentView, setCurrentView] = useState('welcome'); // 'welcome' | 'info' | 'access-project' | 'your-evaluation'
+  const [currentView, setCurrentView] = useState(() => getViewFromPath(window.location.pathname)); // 'welcome' | 'info' | 'access-project' | 'your-evaluation'
   const [isProceedModalOpen, setIsProceedModalOpen] = useState(false);
   const [isEvaluationModalOpen, setIsEvaluationModalOpen] = useState(false);
   const [isDisclaimerModalOpen, setIsDisclaimerModalOpen] = useState(false);
+
+  // Sync route on popstate and update document title
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentView(getViewFromPath(window.location.pathname));
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    document.title = getTitleFromView(currentView);
+  }, [currentView]);
+
+  // Clean canonical URL on mount if an alias was used
+  useEffect(() => {
+    const clean = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+    if (clean === '/your-evaluation' || clean === '/evaluation') {
+      window.history.replaceState({ view: 'your-evaluation' }, '', '/yourevaluation');
+    }
+  }, []);
 
   // Initialize checklist state with default checked items
   const [checklistState, setChecklistState] = useState(() => {
@@ -41,19 +98,27 @@ export default function App() {
     setChecklistState(updated);
   };
 
-  const handleNavigate = (view) => {
+  const handleNavigate = (view, replace = false) => {
+    const targetPath = ROUTE_MAP[view] || '/';
+    const currentPath = window.location.pathname;
+
+    if (currentPath !== targetPath) {
+      if (replace) {
+        window.history.replaceState({ view }, '', targetPath);
+      } else {
+        window.history.pushState({ view }, '', targetPath);
+      }
+    }
     setCurrentView(view);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleEnter = () => {
-    setCurrentView('info');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    handleNavigate('info');
   };
 
   const handleAccessProject = () => {
-    setCurrentView('access-project');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    handleNavigate('access-project');
   };
 
   const completedCount = Object.values(checklistState).filter(Boolean).length;

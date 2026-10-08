@@ -93,6 +93,9 @@ body {
   transition: opacity 0.2s ease, transform 0.2s ease;
   white-space: nowrap;
   user-select: none;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
 }
 
 .minimal-nav-link:hover {
