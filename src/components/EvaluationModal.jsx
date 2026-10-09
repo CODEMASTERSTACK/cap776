@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X, Award, CheckCircle, Info } from 'lucide-react';
+import { X, Award, CheckCircle, Info, AlertTriangle } from 'lucide-react';
 
 export default function EvaluationModal({ isOpen, onClose, rubric }) {
   useEffect(() => {
@@ -38,6 +38,17 @@ export default function EvaluationModal({ isOpen, onClose, rubric }) {
 
         {/* Body Content: Clean Structured Table */}
         <div className="dialog-body eval-modal-body">
+          {/* Instructor Criteria Update Notice */}
+          <div className="eval-criteria-update-notice">
+            <AlertTriangle size={18} className="eval-warning-icon" />
+            <div className="eval-warning-content">
+              <strong>Notice: Criteria Changed by Instructor</strong>
+              <p>
+                The course instructor has modified the evaluation criteria and made the repository private. The 10-component rubric below reflects the baseline criteria and may differ from the teacher's current evaluation standards. Do not assume your official marks will match this exact rubric.
+              </p>
+            </div>
+          </div>
+
           <div className="eval-scaling-banner">
             <Info size={16} className="eval-info-icon" />
             <span>

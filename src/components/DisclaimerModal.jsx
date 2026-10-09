@@ -54,6 +54,12 @@ export default function DisclaimerModal({ isOpen, onClose }) {
                 <strong>Anti-Plagiarism Best Practices:</strong> The generated code variants provide polymorphic architectures to prevent identical submissions, but you must understand how your code works.
               </div>
             </div>
+            <div className="disclaimer-point-item">
+              <span className="point-bullet">4</span>
+              <div>
+                <strong>Evaluation Criteria Updates:</strong> The instructor has updated the evaluation criteria and made the official repository private. This evaluation sandbox uses baseline criteria and may differ from the teacher's actual evaluation. Do not assume sandbox marks will match your final marks.
+              </div>
+            </div>
           </div>
         </div>
 

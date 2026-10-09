@@ -8,7 +8,8 @@ import {
   Calendar, 
   Scale, 
   Award,
-  Info
+  Info,
+  AlertTriangle
 } from 'lucide-react';
 import ParameterCard from './ParameterCard';
 import StudentFunctionsTable from './StudentFunctionsTable';
@@ -167,6 +168,17 @@ export default function ProjectInfoView({
                     <span>Open in Modal Dialog</span>
                     <ArrowRight size={13} />
                   </button>
+                </div>
+
+                {/* Criteria Notice */}
+                <div className="eval-criteria-update-notice">
+                  <AlertTriangle size={18} className="eval-warning-icon" />
+                  <div className="eval-warning-content">
+                    <strong>Notice: Criteria Changed by Instructor</strong>
+                    <p>
+                      The course instructor has modified the evaluation criteria and set the repository to private. The rubric below represents the previously known criteria and may differ from the teacher's current evaluation.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="eval-scaling-banner">

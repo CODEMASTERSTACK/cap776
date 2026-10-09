@@ -339,12 +339,41 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
             <strong>Worksheet name should be: <b style={{color: '#D44D5C'}}>Daily Log </b></strong>
           </p>
 
-          {/* Highlighted Warning Banner (One-Liner) */}
-          <div className="your-eval-warning-banner">
-            <AlertTriangle className="warning-icon" size={18} />
-            <span>
-              <strong>Pre-Evaluation Only:</strong> Testing files here only checks your estimated score, you must still submit your final files on your teacher's official portal.
-            </span>
+          {/* Important Warning Notice: Teacher Changed Criteria & Repo is Private */}
+          <div className="your-eval-criteria-notice-card">
+            <div className="criteria-notice-header">
+              <div className="criteria-notice-badge">
+                <AlertTriangle size={18} className="warning-icon" />
+                <span>CRITERIA UPDATE NOTICE • PLEASE READ</span>
+              </div>
+              <span className="criteria-notice-tag">Estimated Sandbox Only</span>
+            </div>
+
+            <div className="criteria-notice-body">
+              <p className="criteria-notice-summary">
+              </p>
+
+              <div className="criteria-notice-bullets">
+                <div className="notice-bullet-item">
+                  <span className="bullet-icon">⚠️</span>
+                  <div>
+                    <strong>Possible Evaluation Discrepancy:</strong> The evaluation performed on this page uses the previously available criteria and might differ from the teacher's new evaluation criteria.
+                  </div>
+                </div>
+                <div className="notice-bullet-item">
+                  <span className="bullet-icon">⚠️</span>
+                  <div>
+                    <strong>Not the Actual Criteria:</strong> This evaluation is NOT the teacher's actual or final evaluation criteria.
+                  </div>
+                </div>
+                <div className="notice-bullet-item">
+                  <span className="bullet-icon">⚠️</span>
+                  <div>
+                    <strong>Do Not Assume Final Marks:</strong> Do not assume that whatever marks or results you obtain here will be the marks you receive from your teacher. Treat these scores as an approximation for preliminary self-checking only.
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="your-eval-date-notice">
@@ -500,6 +529,17 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
              ========================================================== */
           <div className="results-container">
 
+            {/* Criteria Update Warning for Calculated Results */}
+            <div className="results-criteria-alert">
+              <div className="results-alert-badge">
+                <AlertTriangle size={15} />
+                <span>ESTIMATED SCORE NOTICE</span>
+              </div>
+              <p className="results-alert-text">
+                <strong>Important:</strong> The instructor has updated the grading criteria and made the repository private. These calculated marks (<strong>{result.raw_score}/100</strong>, scaled to <strong>{result.scaled_score}/15</strong>) are based on the prior baseline rubric and <strong>may differ from the teacher's actual evaluation</strong>. Do not assume you will receive the exact same score from your instructor.
+              </p>
+            </div>
+
             {/* Top Score Banner */}
             <div className="your-eval-card score-hero-card">
               <div className="student-meta-strip">
@@ -569,7 +609,7 @@ export default function YourEvaluationView({ onBackToWelcome, onOpenEvaluationCr
                   <Download size={18} />
                   <span>Download Official Evaluation PDF</span>
                 </button>
-                <span className="pdf-note">ReportLab PDF matching teacher's official scorecard format</span>
+                <span className="pdf-note">Preliminary scorecard PDF (based on prior rubric — official grading by teacher may vary)</span>
               </div>
             </div>
 
